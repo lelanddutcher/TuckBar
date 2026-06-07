@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TuckBar — "T" lettermark variations</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color: #e9e9ee; -webkit-font-smoothing: antialiased;
+    background: radial-gradient(140% 100% at 50% -10%, #3a2c4d 0%, #1c1b2a 45%, #0c0c12 100%);
+    min-height: 100vh; padding: 52px 24px 90px;
+  }
+  .wordmark { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 6px; }
+  .wordmark .glyph { position: relative; width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(#202028, #0d0d12); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+  .wordmark .glyph::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 5px; background: #000; border-radius: 0 0 4px 4px; }
+  .wordmark h1 { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .wordmark h1 b { color: #ff9f0a; }
+  .tagline { text-align: center; color: #9a9aac; margin-bottom: 40px; }
+
+  .grid { display: flex; flex-wrap: wrap; gap: 30px 28px; justify-content: center; max-width: 900px; margin: 0 auto; }
+  .card { width: 200px; }
+  .stage { display: flex; align-items: flex-end; gap: 14px; padding: 18px; border-radius: 18px;
+    background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); border: 1px solid rgba(255,255,255,.07); }
+  .icon-lg { width: 104px; height: 104px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.5)); }
+  .smalls { display: flex; flex-direction: column; gap: 8px; align-items: center; padding-bottom: 3px; }
+  .icon-md { width: 44px; height: 44px; }
+  .icon-sm { width: 22px; height: 22px; }
+  .smalls span { font-size: 9px; color: #70707f; }
+  .card h3 { font-size: 14px; font-weight: 600; margin: 13px 0 3px; }
+  .card p { font-size: 12px; color: #9a9aac; }
+  .chip { display: inline-block; margin-top: 7px; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; }
+  .chip.rec { color: #ff9f0a; border: 1px solid rgba(255,159,10,.45); }
+  .footnote { max-width: 640px; margin: 50px auto 0; text-align: center; color: #7e7e90; font-size: 12.5px; line-height: 1.7; }
+  .footnote code { color: #c9c9d6; background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <div class="wordmark"><span class="glyph"></span><h1>Tuck<b>Bar</b></h1></div>
+  <p class="tagline">“T” lettermark variations — every one is a T made of a menu bar.</p>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2b2b33"/><stop offset=".55" stop-color="#141417"/><stop offset="1" stop-color="#08080a"/>
+      </linearGradient>
+      <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6e6ec"/>
+      </linearGradient>
+      <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffc066"/><stop offset="1" stop-color="#ff8a00"/>
+      </linearGradient>
+      <clipPath id="sq"><rect x="6" y="6" width="128" height="128" rx="30"/></clipPath>
+    </defs>
+
+    <!-- T1 · Menu-bar T (crossbar is the menu bar, notch cuts it) -->
+    <symbol id="t1" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="18" y="8" width="104" height="16" rx="3" fill="url(#bar)"/>
+        <rect x="62" y="24" width="16" height="80" rx="4" fill="url(#bar)"/>
+        <path d="M55 6 H85 V14 Q85 20 79 20 H61 Q55 20 55 14 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T2 · Belly bulge -->
+    <symbol id="t2" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="34" y="42" width="72" height="16" rx="3.5" fill="url(#bar)"/>
+        <rect x="62" y="42" width="16" height="62" rx="4" fill="url(#bar)"/>
+        <path d="M56 58 Q70 79 84 58 Z" fill="url(#bar)"/>
+        <path d="M54 6 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T3 · Soft / rounded -->
+    <symbol id="t3" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="33" y="42" width="74" height="18" rx="9" fill="url(#bar)"/>
+        <rect x="61" y="44" width="18" height="60" rx="9" fill="url(#bar)"/>
+        <circle cx="70" cy="63" r="11" fill="url(#bar)"/>
+        <path d="M54 6 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T4 · Monoline -->
+    <symbol id="t4" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <path d="M36 52 H104" fill="none" stroke="url(#bar)" stroke-width="9" stroke-linecap="round"/>
+        <path d="M62 52 Q70 66 78 52" fill="none" stroke="url(#bar)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M70 52 V102" fill="none" stroke="url(#bar)" stroke-width="9" stroke-linecap="round"/>
+        <path d="M54 6 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T5 · Amber belly -->
+    <symbol id="t5" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="34" y="42" width="72" height="16" rx="3.5" fill="url(#bar)"/>
+        <rect x="62" y="42" width="16" height="62" rx="4" fill="url(#bar)"/>
+        <path d="M56 58 Q70 79 84 58 Z" fill="url(#amber)"/>
+        <path d="M54 6 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T6 · Foot bulge -->
+    <symbol id="t6" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="34" y="42" width="72" height="16" rx="3.5" fill="url(#bar)"/>
+        <rect x="62" y="42" width="16" height="58" rx="4" fill="url(#bar)"/>
+        <path d="M57 100 Q70 117 83 100 Z" fill="url(#bar)"/>
+        <path d="M54 6 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T7 · Negative-notch (notch carved from the crossbar — no separate tab) -->
+    <symbol id="t7" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <path d="M22 10 H56 Q58 10 58 12 V16 Q58 19 61 19 H79 Q82 19 82 16 V12 Q82 10 84 10 H118 V27 H22 Z" fill="url(#bar)"/>
+        <rect x="62" y="27" width="16" height="77" rx="4" fill="url(#bar)"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T8 · Lowercase tucked "t" -->
+    <symbol id="t8" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="63" y="30" width="14" height="64" rx="7" fill="url(#bar)"/>
+        <rect x="50" y="50" width="40" height="12" rx="6" fill="url(#bar)"/>
+        <path d="M70 92 q0 12 14 9" fill="none" stroke="url(#bar)" stroke-width="14" stroke-linecap="round"/>
+        <path d="M54 6 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- T9 · Tuck slice (crossbar lifted off the stem) -->
+    <symbol id="t9" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="34" y="38" width="72" height="15" rx="4" fill="url(#bar)"/>
+        <rect x="62" y="61" width="16" height="43" rx="4" fill="url(#bar)"/>
+        <path d="M54 6 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+  </svg>
+
+  <div class="grid">
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t1"/></svg><div class="smalls"><svg class="icon-md"><use href="#t1"/></svg><svg class="icon-sm"><use href="#t1"/></svg><span>44·22</span></div></div>
+      <h3>T1 · Menu-bar T</h3><p>The crossbar <em>is</em> the menu bar, notch cutting it. The whole concept in one mark.</p><span class="chip rec">recommended</span></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t2"/></svg><div class="smalls"><svg class="icon-md"><use href="#t2"/></svg><svg class="icon-sm"><use href="#t2"/></svg><span>44·22</span></div></div>
+      <h3>T2 · Belly bulge</h3><p>Bold T with a belly under the notch. Cheeky and unmistakable.</p><span class="chip rec">recommended</span></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t3"/></svg><div class="smalls"><svg class="icon-md"><use href="#t3"/></svg><svg class="icon-sm"><use href="#t3"/></svg><span>44·22</span></div></div>
+      <h3>T3 · Soft</h3><p>Rounded terminals + a gentle round belly. Friendlier, more approachable.</p></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t4"/></svg><div class="smalls"><svg class="icon-md"><use href="#t4"/></svg><svg class="icon-sm"><use href="#t4"/></svg><span>44·22</span></div></div>
+      <h3>T4 · Monoline</h3><p>Thin-stroke T with a dipped crossbar. Modern; gets faint at tiny sizes.</p></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t5"/></svg><div class="smalls"><svg class="icon-md"><use href="#t5"/></svg><svg class="icon-sm"><use href="#t5"/></svg><span>44·22</span></div></div>
+      <h3>T5 · Amber belly</h3><p>T2 with the bulge in brand amber — a pop of warmth/identity.</p></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t6"/></svg><div class="smalls"><svg class="icon-md"><use href="#t6"/></svg><svg class="icon-sm"><use href="#t6"/></svg><span>44·22</span></div></div>
+      <h3>T6 · Foot bulge</h3><p>Bulge at the base instead of the crossbar — a little tucked foot.</p></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t7"/></svg><div class="smalls"><svg class="icon-md"><use href="#t7"/></svg><svg class="icon-sm"><use href="#t7"/></svg><span>44·22</span></div></div>
+      <h3>T7 · Negative notch</h3><p>Notch carved straight out of the crossbar — no separate tab. Cleanest/most minimal.</p><span class="chip rec">recommended</span></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t8"/></svg><div class="smalls"><svg class="icon-md"><use href="#t8"/></svg><svg class="icon-sm"><use href="#t8"/></svg><span>44·22</span></div></div>
+      <h3>T8 · Lowercase “t”</h3><p>A lowercase t with a curling, tucked foot. More wordmark-y.</p></div>
+
+    <div class="card"><div class="stage"><svg class="icon-lg"><use href="#t9"/></svg><div class="smalls"><svg class="icon-md"><use href="#t9"/></svg><svg class="icon-sm"><use href="#t9"/></svg><span>44·22</span></div></div>
+      <h3>T9 · Tuck slice</h3><p>Crossbar lifted off the stem — a gap where it’s tucking away. Conceptual.</p></div>
+  </div>
+
+  <p class="footnote">
+    Strongest to me: <b>T1 (menu-bar T)</b> and <b>T7 (negative notch)</b> for clarity, <b>T2/T5</b> for personality.
+    Pick one (or a blend) and I’ll master it at <code>1024px</code> → <code>.icns</code> into the bundle.
+  </p>
+</body>
+</html>

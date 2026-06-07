@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TuckBar — icon motion studies</title>
+<style>
+  :root {
+    --mult: 1;                 /* slow-mo multiplier */
+    --bar: linear-gradient(#fdfdfd, #e7e7ee);
+    --amber: #ff9f0a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    color: #e9e9ee;
+    background:
+      radial-gradient(140% 100% at 50% -10%, #3a2c4d 0%, #1c1b2a 45%, #0c0c12 100%);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100%;
+    padding: 56px 24px 80px;
+  }
+
+  /* ---- header ---- */
+  .wordmark {
+    display: flex; align-items: center; gap: 12px;
+    justify-content: center; margin-bottom: 6px;
+  }
+  .wordmark .glyph {
+    position: relative; width: 30px; height: 30px;
+    border-radius: 8px; background: linear-gradient(#202028, #0d0d12);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .wordmark .glyph::before { /* mini notch */
+    content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 5px; background: #000;
+    border-radius: 0 0 4px 4px;
+  }
+  .wordmark h1 { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .wordmark h1 b { color: var(--amber); font-weight: 700; }
+  .tagline { text-align: center; color: #9a9aac; margin-bottom: 30px; }
+
+  /* ---- controls ---- */
+  .controls { display: flex; gap: 10px; justify-content: center; margin-bottom: 44px; }
+  .controls button {
+    font: inherit; font-size: 13px; color: #e9e9ee;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+    padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    transition: background .15s ease, transform .05s ease;
+  }
+  .controls button:hover { background: rgba(255,255,255,.12); }
+  .controls button:active { transform: scale(.96); }
+  .controls button.on { background: var(--amber); color: #1a1205; border-color: transparent; }
+
+  /* ---- grid ---- */
+  .grid {
+    display: flex; flex-wrap: wrap; gap: 40px;
+    justify-content: center; align-items: flex-start; max-width: 760px; margin: 0 auto;
+  }
+  .concept { width: 200px; text-align: center; }
+  .concept h3 { font-size: 15px; font-weight: 600; margin: 18px 0 4px; }
+  .concept p { font-size: 12.5px; color: #9a9aac; }
+  .concept .pick {
+    display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 600;
+    color: var(--amber); border: 1px solid rgba(255,159,10,.4);
+    padding: 2px 8px; border-radius: 999px;
+  }
+
+  /* ---- the icon ---- */
+  .icon {
+    width: 184px; height: 184px; margin: 0 auto; position: relative; overflow: hidden;
+    border-radius: 42px;
+    background: radial-gradient(120% 120% at 50% 0%, #2b2b33 0%, #141417 55%, #08080a 100%);
+    box-shadow: 0 16px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .icon .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 64px; height: 21px; background: #000; z-index: 3;
+    border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
+  }
+  .icon .bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 30px; z-index: 2;
+    background: var(--bar);
+    box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+  .icon .bar::after {           /* the bulge — a droplet hanging from the bar's belly */
+    content: ""; position: absolute; top: 100%; left: 50%;
+    transform: translate(-50%, 0) scaleY(0); transform-origin: top center;
+    width: 56px; height: 28px; background: var(--bar);
+    border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  }
+
+  /* ============ Concept 1 — Bulge → Tuck (into the notch) ============ */
+  .v-tuck .bar {
+    animation: barTuck calc(3.2s * var(--mult)) cubic-bezier(.55,0,.25,1) infinite;
+  }
+  .v-tuck .bar::after {
+    animation: drop calc(3.2s * var(--mult)) cubic-bezier(.55,0,.25,1) infinite;
+  }
+  @keyframes barTuck {
+    0%, 14%  { transform: translateY(0); }
+    42%      { transform: translateY(3px); }        /* settles as it swells */
+    60%      { transform: translateY(-135%); }      /* springs up & tucks away */
+    82%      { transform: translateY(-135%); }      /* gone — just the notch */
+    100%     { transform: translateY(0); }          /* untucks back */
+  }
+  @keyframes drop {
+    0%, 14%  { transform: translate(-50%,0) scaleY(0); }
+    42%      { transform: translate(-50%,0) scaleY(1.3) scaleX(.9); }  /* bulge down */
+    55%      { transform: translate(-50%,0) scaleY(.35); }             /* retract */
+    60%, 100%{ transform: translate(-50%,0) scaleY(0); }
+  }
+
+  /* ============ Concept 2 — The Bulge (the wink) ============ */
+  .v-wink .bar {
+    animation: winkBar calc(2.2s * var(--mult)) ease-in-out infinite;
+  }
+  .v-wink .bar::after {
+    animation: winkDrop calc(2.2s * var(--mult)) ease-in-out infinite;
+  }
+  @keyframes winkBar {
+    0%, 100% { transform: translateY(0); }
+    55%      { transform: translateY(2px); }
+  }
+  @keyframes winkDrop {
+    0%, 18%, 100% { transform: translate(-50%,0) scaleY(0); }
+    55%           { transform: translate(-50%,0) scaleY(1.4) scaleX(.88); }
+    80%           { transform: translate(-50%,0) scaleY(0); }
+  }
+
+  /* ============ Concept 3 — Slide Tuck (clean, no bulge) ============ */
+  .v-slide .bar {
+    animation: slideTuck calc(3.2s * var(--mult)) cubic-bezier(.5,0,.2,1) infinite;
+  }
+  @keyframes slideTuck {
+    0%, 20% { transform: translateY(0); }
+    46%     { transform: translateY(-135%); }
+    80%     { transform: translateY(-135%); }
+    100%    { transform: translateY(0); }
+  }
+
+  body.paused .icon .bar,
+  body.paused .icon .bar::after { animation-play-state: paused; }
+
+  .footnote {
+    max-width: 620px; margin: 56px auto 0; text-align: center;
+    color: #7e7e90; font-size: 12.5px; line-height: 1.7;
+  }
+  .footnote code { color: #c9c9d6; background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <div class="wordmark">
+    <span class="glyph"></span>
+    <h1>Tuck<b>Bar</b></h1>
+  </div>
+  <p class="tagline">Icon motion studies — the bulge &amp; the tuck. The notch is the pocket.</p>
+
+  <div class="controls">
+    <button id="slow">Slow-mo</button>
+    <button id="pause">Pause</button>
+  </div>
+
+  <div class="grid">
+    <div class="concept">
+      <div class="icon v-tuck"><div class="bar"></div><div class="notch"></div></div>
+      <h3>Bulge → Tuck</h3>
+      <p>The bar swells under the notch, then springs up and tucks away — leaving just the notch.</p>
+      <span class="pick">recommended</span>
+    </div>
+
+    <div class="concept">
+      <div class="icon v-wink"><div class="bar"></div><div class="notch"></div></div>
+      <h3>The Bulge</h3>
+      <p>Just the wink — the bar sags into a bulge and recovers. Cheeky; best for loaders &amp; hovers.</p>
+    </div>
+
+    <div class="concept">
+      <div class="icon v-slide"><div class="bar"></div><div class="notch"></div></div>
+      <h3>Slide Tuck</h3>
+      <p>No bulge — the bar simply slides up and tucks away. Calmer, for comparison.</p>
+    </div>
+  </div>
+
+  <p class="footnote">
+    The static <b>app icon</b> would be a single frame of <b>Bulge → Tuck</b> — the bar caught mid-tuck,
+    half-swallowed by the notch, on a true-black (OLED-off) screen.
+    The full loop is for the website hero, the App Store preview, and the in-app reveal/hide.
+    Tip: hit <code>Slow-mo</code> to study the spring.
+  </p>
+
+<script>
+  const root = document.documentElement;
+  const slow = document.getElementById('slow');
+  const pause = document.getElementById('pause');
+  slow.addEventListener('click', () => {
+    const on = slow.classList.toggle('on');
+    root.style.setProperty('--mult', on ? 3 : 1);
+  });
+  pause.addEventListener('click', () => {
+    pause.classList.toggle('on');
+    document.body.classList.toggle('paused');
+  });
+</script>
+</body>
+</html>

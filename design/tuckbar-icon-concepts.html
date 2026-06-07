@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TuckBar — app icon concepts</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color: #e9e9ee; -webkit-font-smoothing: antialiased;
+    background: radial-gradient(140% 100% at 50% -10%, #3a2c4d 0%, #1c1b2a 45%, #0c0c12 100%);
+    min-height: 100vh; padding: 52px 24px 90px;
+  }
+  .wordmark { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 6px; }
+  .wordmark .glyph { position: relative; width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(#202028, #0d0d12); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+  .wordmark .glyph::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 5px; background: #000; border-radius: 0 0 4px 4px; }
+  .wordmark h1 { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .wordmark h1 b { color: #ff9f0a; }
+  .tagline { text-align: center; color: #9a9aac; margin-bottom: 40px; }
+
+  .grid { display: flex; flex-wrap: wrap; gap: 34px 30px; justify-content: center; max-width: 880px; margin: 0 auto; }
+  .card { width: 250px; }
+  .stage {
+    display: flex; align-items: flex-end; gap: 16px;
+    padding: 22px 22px 20px; border-radius: 20px;
+    background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    border: 1px solid rgba(255,255,255,.07);
+  }
+  .icon-lg { width: 124px; height: 124px; filter: drop-shadow(0 12px 22px rgba(0,0,0,.5)); }
+  .smalls { display: flex; flex-direction: column; gap: 9px; align-items: center; padding-bottom: 4px; }
+  .icon-md { width: 48px; height: 48px; }
+  .icon-sm { width: 24px; height: 24px; }
+  .smalls span { font-size: 9px; color: #70707f; }
+  .card h3 { font-size: 15px; font-weight: 600; margin: 16px 0 3px; }
+  .card p { font-size: 12.5px; color: #9a9aac; }
+  .chip { display: inline-block; margin-top: 8px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .chip.rec { color: #ff9f0a; border: 1px solid rgba(255,159,10,.45); }
+  .chip.alt { color: #9aa7ff; border: 1px solid rgba(154,167,255,.4); }
+  .footnote { max-width: 640px; margin: 54px auto 0; text-align: center; color: #7e7e90; font-size: 12.5px; line-height: 1.7; }
+  .footnote code { color: #c9c9d6; background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <div class="wordmark"><span class="glyph"></span><h1>Tuck<b>Bar</b></h1></div>
+  <p class="tagline">App icon concepts — vector, shown at 124 / 48 / 24px to check legibility.</p>
+
+  <!-- ============ shared defs + symbols ============ -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2b2b33"/><stop offset=".55" stop-color="#141417"/><stop offset="1" stop-color="#08080a"/>
+      </linearGradient>
+      <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6e6ec"/>
+      </linearGradient>
+      <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffc066"/><stop offset="1" stop-color="#ff8a00"/>
+      </linearGradient>
+      <radialGradient id="warm" cx="50%" cy="18%" r="90%">
+        <stop offset="0" stop-color="#6a4416"/><stop offset=".55" stop-color="#2a1c22"/><stop offset="1" stop-color="#120c12"/>
+      </radialGradient>
+      <clipPath id="sq"><rect x="6" y="6" width="128" height="128" rx="30"/></clipPath>
+    </defs>
+
+    <!-- 1 · Tucked (pocket) -->
+    <symbol id="ic-tuck" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="60" y="17.5" width="20" height="3" rx="1.5" fill="url(#bar)" opacity=".85"/>
+        <path d="M54 5 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- 2 · The Bulge (wink) -->
+    <symbol id="ic-bulge" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="20" y="8" width="100" height="15" rx="3.5" fill="url(#bar)"/>
+        <path d="M55 23 Q70 44 85 23 Z" fill="url(#bar)"/>
+        <path d="M54 5 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- 3 · Tuck arc -->
+    <symbol id="ic-arc" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="24" y="11" width="92" height="14" rx="3.5" fill="url(#bar)"/>
+        <path d="M70 96 C 104 96 104 44 84 30" fill="none" stroke="url(#amber)" stroke-width="6" stroke-linecap="round"/>
+        <path d="M84 30 l 9 4 M84 30 l -1 10" fill="none" stroke="url(#amber)" stroke-width="6" stroke-linecap="round"/>
+        <path d="M54 5 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- 4 · Cozy / rest -->
+    <symbol id="ic-cozy" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#warm)"/>
+        <rect x="26" y="84" width="88" height="20" rx="6" fill="url(#bar)"/>
+        <path d="M18 86 Q70 70 122 86 L122 100 Q70 90 18 100 Z" fill="#15101c"/>
+        <text x="86" y="50" fill="#fff" opacity=".92" font-family="-apple-system, sans-serif" font-size="15" font-weight="700">z</text>
+        <text x="98" y="40" fill="#fff" opacity=".75" font-family="-apple-system, sans-serif" font-size="12" font-weight="700">z</text>
+        <text x="107" y="32" fill="#fff" opacity=".55" font-family="-apple-system, sans-serif" font-size="9" font-weight="700">z</text>
+        <path d="M54 5 H86 V12 Q86 18 80 18 H60 Q54 18 54 12 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- 5 · Minimal mark (also the menu-bar glyph) -->
+    <symbol id="ic-mark" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <path d="M48 30 H92 V40 Q92 48 84 48 H56 Q48 48 48 40 Z" fill="#fff"/>
+        <path d="M58 78 q12 16 24 0" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M61 64 l9 -9 l9 9" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- 6 · "T" letter-tuck -->
+    <symbol id="ic-tee" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="32" y="44" width="76" height="16" rx="4" fill="url(#bar)"/>
+        <rect x="62" y="44" width="16" height="58" rx="4" fill="url(#bar)"/>
+        <path d="M58 60 Q70 74 82 60 Z" fill="url(#bar)"/>
+        <path d="M55 5 H85 V11 Q85 17 79 17 H61 Q55 17 55 11 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+  </svg>
+
+  <!-- ============ cards ============ -->
+  <div class="grid">
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#ic-tuck"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#ic-tuck"/></svg><svg class="icon-sm"><use href="#ic-tuck"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>1 · Tucked (the pocket)</h3>
+      <p>Everything tucked away — a sliver peeking from the notch-pocket. Calm, true-black, very “all tucked in.”</p>
+      <span class="chip rec">recommended · protected state</span>
+    </div>
+
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#ic-bulge"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#ic-bulge"/></svg><svg class="icon-sm"><use href="#ic-bulge"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>2 · The Bulge</h3>
+      <p>The bar with a belly under the notch. Distinctive, ownable, cheeky — reads as a face. Most “TuckBar.”</p>
+      <span class="chip rec">recommended · brand mark</span>
+    </div>
+
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#ic-arc"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#ic-arc"/></svg><svg class="icon-sm"><use href="#ic-arc"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>3 · Tuck arc</h3>
+      <p>An amber sweep showing the bar tucking up into the notch. Literal of the verb; busier at small sizes.</p>
+      <span class="chip alt">motion-y</span>
+    </div>
+
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#ic-cozy"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#ic-cozy"/></svg><svg class="icon-sm"><use href="#ic-cozy"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>4 · Cozy (rest)</h3>
+      <p>Bar tucked in under a blanket, z-z-z. Warm. Ties burn-in “rest” to the snooze — friendly sub-brand.</p>
+      <span class="chip alt">warm / snooze</span>
+    </div>
+
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#ic-mark"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#ic-mark"/></svg><svg class="icon-sm"><use href="#ic-mark"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>5 · Minimal mark</h3>
+      <p>Notch + a bar tucking up. Reduced and high-contrast — doubles as the monochrome menu-bar glyph.</p>
+      <span class="chip alt">menu-bar glyph</span>
+    </div>
+
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#ic-tee"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#ic-tee"/></svg><svg class="icon-sm"><use href="#ic-tee"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>6 · “T” letter-tuck</h3>
+      <p>A bold T whose crossbar is the menu bar (with a bulge), notch above. Lettermark option.</p>
+      <span class="chip alt">lettermark</span>
+    </div>
+  </div>
+
+  <p class="footnote">
+    My lean: <b>#2 The Bulge</b> as the static app icon (distinctive + the brand’s “face”), with <b>#1 Tucked</b>
+    as the in-app “protected” glyph and <b>#5</b> as the menu-bar mark. Pick one and I’ll master it at
+    <code>1024px</code> and export <code>.icns</code> into the bundle.
+  </p>
+</body>
+</html>
