@@ -8,13 +8,14 @@ struct MenuContent: View {
             header
             if model.isSnoozing || model.isProtecting { snoozeCard }
             enableRow
-            section("Menu bar on protected displays") { coverCard }
-            section("Displays", trailing: "Tag to protect") { displaysCard }
+            if model.needsAutomation { automationBanner }
+            section("Menu bar on tucked displays") { coverCard }
+            section("Displays", trailing: "Tag to tuck") { displaysCard }
             footer
         }
         .padding(16)
         .frame(width: 340)
-        .onAppear { model.refreshAll() }
+        .onAppear { model.refreshAll(); model.recheckPermission() }
     }
 
     // MARK: - Header
@@ -25,8 +26,8 @@ struct MenuContent: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(tileStyle)
                     .frame(width: 38, height: 38)
-                Image(systemName: model.statusSymbol)
-                    .font(.system(size: 18, weight: .semibold))
+                Image(nsImage: model.statusGlyph)
+                    .renderingMode(.template)
                     .foregroundStyle(tileHasColor ? Color.white : Color.secondary)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -53,7 +54,7 @@ struct MenuContent: View {
     private var coverPct: Int { Int((model.coverOpacity * 100).rounded()) }
 
     private var statusText: String {
-        if !model.isEnabled { return "Off · not protecting" }
+        if !model.isEnabled { return "Off · not tucking" }
         if !model.hasTaggedDisplay { return "Nothing tagged yet" }
         if model.isSnoozing { return "Untucked · re-tucks in \(model.snoozeRemainingText)" }
         if model.isProtecting {
@@ -122,13 +123,28 @@ struct MenuContent: View {
     private var enableRow: some View {
         Toggle(isOn: $model.isEnabled) {
             VStack(alignment: .leading, spacing: 1) {
-                Text("Protect tagged displays").font(.callout.weight(.medium))
-                Text("Cover the menu bar on a tagged display while it's connected; other monitors keep theirs.")
+                Text("Tuck tagged displays").font(.callout.weight(.medium))
+                Text("Tuck the menu bar away on a tagged display while it's connected; other monitors keep theirs.")
                     .font(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .toggleStyle(.switch).controlSize(.small)
+    }
+
+    private var automationBanner: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Allow TuckBar to control System Events")
+                .font(.caption2.weight(.semibold)).foregroundStyle(.orange)
+            Text("Automation is off, so tucking on a single display and hiding the Dock can't apply. Enable TuckBar under Automation → System Events.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open Automation settings…") { model.openAutomationSettings() }
+                .controlSize(.small)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     // MARK: - Cover intensity (hide ⟷ dim)
@@ -159,6 +175,21 @@ struct MenuContent: View {
                 }
             }
             .toggleStyle(.switch).controlSize(.small)
+
+            if model.needsScreenRecording {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Grant Screen Recording for seamless wallpaper")
+                        .font(.caption2.weight(.semibold)).foregroundStyle(.orange)
+                    Text("TuckBar reads the wallpaper pixels (the screen isn't recorded). Enable it, then reopen this menu — until then the cover shows black.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Open Screen Recording settings…") { model.openScreenRecordingSettings() }
+                        .controlSize(.small)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
 
             if model.usingAutohideFallback {
                 Text("Only one display connected — using native auto-hide. The slider applies with 2+ displays.")

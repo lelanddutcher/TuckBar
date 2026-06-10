@@ -3,16 +3,18 @@ import AppKit
 /// Per-display overlay windows that cover the menu-bar strip on chosen displays.
 ///
 /// The cover can be **solid black** (pixels off = most burn-in-protective) or a
-/// **seamless wallpaper slice** — it renders exactly the portion of that display's
-/// desktop picture that sits behind the menu bar, so the bar appears to simply
-/// vanish and the wallpaper continues to the top edge. Either way it auto-hides on
-/// hover (see `tick()`), and only ever touches the displays you tag.
+/// **seamless wallpaper slice** — it captures the *real on-screen pixels* of the
+/// display's wallpaper behind the menu bar (via `ScreenCapture` / ScreenCaptureKit), so
+/// the bar appears to simply vanish and the wallpaper continues to the top edge with no
+/// alignment drift. Either way it auto-hides on hover (see `tick()`), steps aside when a
+/// full-screen Space owns the display, and only ever touches the displays you tag.
 @MainActor
 final class MenuBarCover {
     private var windows: [CGDirectDisplayID: NSWindow] = [:]
     private var revealedUntil: [CGDirectDisplayID: Date] = [:]
     private var covered: [CGDirectDisplayID: Bool] = [:]   // current shown-state (nil = unknown)
     private var styleIsWallpaper: [CGDirectDisplayID: Bool] = [:]
+    private var wallpaperGen: [CGDirectDisplayID: Int] = [:]   // drops stale async captures
     private var opacity: CGFloat = 1
     private var wallpaperDirty = true                       // reload images on next configure
     private var renderedKey: [CGDirectDisplayID: String] = [:]   // wallpaper identity last rendered
@@ -49,7 +51,7 @@ final class MenuBarCover {
                 || styleIsWallpaper[id] != usesWallpaper
                 || (usesWallpaper && wallpaperDirty)
             if needsConfigure {
-                Self.configure(win, for: screen, usesWallpaper: usesWallpaper)
+                configure(win, for: screen, usesWallpaper: usesWallpaper)
                 styleIsWallpaper[id] = usesWallpaper
                 renderedKey[id] = usesWallpaper ? Self.wallpaperKey(for: screen) : nil
             }
@@ -67,19 +69,22 @@ final class MenuBarCover {
         wallpaperDirty = true
     }
 
-    /// Reveal the cover on whichever display the pointer is at the top of; otherwise
-    /// keep it covered. Cheap; called ~16×/sec.
+    /// Reveal the cover on whichever display the pointer is at the top of; otherwise keep
+    /// it covered. Steps aside entirely when the display's menu bar isn't occupying space
+    /// (a full-screen Space owns it). Cheap; called ~16×/sec.
     func tick() {
         let mouse = NSEvent.mouseLocation
         let now = Date()
         for (id, win) in windows {
             guard let screen = Self.screen(for: id) else { continue }
             let f = screen.frame
-            let barHeight = max(f.maxY - screen.visibleFrame.maxY, 24)
+            let inset = f.maxY - screen.visibleFrame.maxY
+            let menuBarVisible = inset > 1            // ~0 when a full-screen Space owns this display
+            let barHeight = max(inset, 24)
             let overTop = mouse.x >= f.minX && mouse.x < f.maxX && mouse.y >= f.maxY - barHeight
             if overTop { revealedUntil[id] = now.addingTimeInterval(lingerSeconds) }
             let lingering = revealedUntil[id].map { now < $0 } ?? false
-            let shouldCover = !(overTop || lingering) && opacity > 0.001
+            let shouldCover = menuBarVisible && !(overTop || lingering) && opacity > 0.001
             if covered[id] != shouldCover {
                 if shouldCover {
                     win.alphaValue = opacity
@@ -103,7 +108,7 @@ final class MenuBarCover {
             guard let screen = Self.screen(for: id) else { continue }
             let key = Self.wallpaperKey(for: screen)
             if renderedKey[id] != key {
-                Self.configure(win, for: screen, usesWallpaper: true)
+                configure(win, for: screen, usesWallpaper: true)
                 renderedKey[id] = key
             }
         }
@@ -135,56 +140,40 @@ final class MenuBarCover {
         return win
     }
 
-    /// Fill the cover with either black or the wallpaper slice behind the menu bar.
-    private static func configure(_ win: NSWindow, for screen: NSScreen, usesWallpaper: Bool) {
+    /// Fill the cover with the *captured* wallpaper slice behind the menu bar
+    /// (pixel-perfect — the real on-screen pixels), or black if wallpaper mode is off or
+    /// Screen Recording permission isn't granted yet. Capture is async (ScreenCaptureKit),
+    /// so the cover shows black until the strip arrives; a per-display generation token
+    /// drops stale captures after a fast style / Space switch.
+    private func configure(_ win: NSWindow, for screen: NSScreen, usesWallpaper: Bool) {
         guard let base = win.contentView?.layer else { return }
         base.masksToBounds = true
         base.contentsScale = screen.backingScaleFactor
         base.sublayers?.forEach { $0.removeFromSuperlayer() }
 
-        guard usesWallpaper, let image = wallpaperImage(for: screen) else {
-            base.isGeometryFlipped = false
-            base.backgroundColor = NSColor.black.cgColor
-            return
+        let id = Self.displayID(for: screen)
+        if let id { wallpaperGen[id, default: 0] += 1 }      // invalidate any in-flight capture
+        let token = id.flatMap { wallpaperGen[$0] }
+
+        // Black immediately (this is also the fallback when capture is unavailable).
+        base.isGeometryFlipped = false
+        base.contents = nil
+        base.backgroundColor = NSColor.black.cgColor
+
+        guard usesWallpaper, let id, let token, ScreenCapture.hasPermission() else { return }
+        let barHeight = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
+        let scale = screen.backingScaleFactor
+        Task { @MainActor in
+            guard let image = await ScreenCapture.wallpaperStrip(displayID: id, barHeight: barHeight, scale: scale),
+                  self.wallpaperGen[id] == token else { return }
+            base.isGeometryFlipped = true     // captured CGImage is top-left origin
+            base.contents = image
+            base.contentsGravity = .resize    // captured image IS the strip → fill 1:1
         }
-
-        let (gravity, fillColor) = wallpaperLayout(for: screen)
-        base.backgroundColor = fillColor.cgColor
-        base.isGeometryFlipped = true       // top-left origin so the CGImage is upright
-
-        // A full-screen-sized layer anchored at the strip's top; only its top
-        // (= the slice behind the menu bar) shows through the clipped window.
-        let wallpaper = CALayer()
-        wallpaper.frame = CGRect(x: 0, y: 0, width: screen.frame.width, height: screen.frame.height)
-        wallpaper.contents = image
-        wallpaper.contentsGravity = gravity
-        wallpaper.contentsScale = screen.backingScaleFactor
-        wallpaper.masksToBounds = true
-        base.addSublayer(wallpaper)
     }
 
-    private static func wallpaperImage(for screen: NSScreen) -> CGImage? {
-        guard let url = NSWorkspace.shared.desktopImageURL(for: screen),
-              let image = NSImage(contentsOf: url) else { return nil }
-        var rect = CGRect(origin: .zero, size: image.size)
-        return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
-    }
-
-    /// Map the display's wallpaper scaling mode to a CALayer gravity (+ fill color).
-    private static func wallpaperLayout(for screen: NSScreen) -> (CALayerContentsGravity, NSColor) {
-        let opts = NSWorkspace.shared.desktopImageOptions(for: screen) ?? [:]
-        let allowClipping = (opts[.allowClipping] as? NSNumber)?.boolValue ?? true
-        let fill = (opts[.fillColor] as? NSColor) ?? .black
-        let scaling = (opts[.imageScaling] as? NSNumber)
-            .flatMap { NSImageScaling(rawValue: UInt($0.intValue)) }
-
-        let gravity: CALayerContentsGravity
-        switch scaling {
-        case .scaleAxesIndependently: gravity = .resize                       // Stretch
-        case .scaleNone:              gravity = .center                       // Center
-        default:                      gravity = allowClipping ? .resizeAspectFill : .resizeAspect
-        }
-        return (gravity, fill)
+    private static func displayID(for screen: NSScreen) -> CGDirectDisplayID? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
     }
 
     private static func menuBarFrame(for screen: NSScreen) -> NSRect {

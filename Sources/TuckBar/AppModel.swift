@@ -3,11 +3,11 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 
-/// Central coordinator for TuckBar. Protects displays you tag by covering their
-/// menu bar with a per-display overlay (opaque = hidden, semi-transparent = dimmed),
-/// while leaving other monitors' menu bars untouched. When the protected display is
-/// the *only* one connected, it falls back to the native global auto-hide (so you
-/// still get hover-reveal and aren't left with no accessible menu bar).
+/// Central coordinator for TuckBar. Tucks the menu bar on displays you tag by covering
+/// it with a per-display overlay (opaque = hidden, semi-transparent = dimmed), while
+/// leaving other monitors' menu bars untouched. When the tagged display is the *only*
+/// one connected, it falls back to the native global auto-hide (so you still get
+/// hover-reveal and aren't left with no accessible menu bar).
 @MainActor
 final class AppModel: ObservableObject {
     static let shared = AppModel()
@@ -22,6 +22,13 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var isSnoozing = false
     @Published private(set) var snoozeRemaining: TimeInterval = 0
+
+    /// True when wallpaper mode is active but Screen Recording permission is missing.
+    @Published private(set) var needsScreenRecording = false
+
+    /// True when a System Events call was refused — Automation permission is missing,
+    /// so the menu-bar / Dock toggles silently do nothing until it's granted.
+    @Published private(set) var needsAutomation = false
 
     // Persisted configuration.
     @Published var isEnabled: Bool {
@@ -65,11 +72,17 @@ final class AppModel: ObservableObject {
 
     // Engine state.
     private let cover = MenuBarCover()
-    private var appliedAutohide: Bool?     // global auto-hide state we last set
+    private var appliedAutohide: Bool?     // global auto-hide state we last set (nil = unknown)
     private var savedDock: Bool?           // Dock autohide before we hid it for protection
     private var snoozeUntil: Date?
     private var snoozeTimer: Timer?
     private var revealTimer: Timer?        // drives the cover's hover-reveal
+    private var requestedScreenRecording = false
+
+    /// Serial queue for the blocking System Events / `defaults` calls, so they never
+    /// stall the main thread — especially the first Automation consent prompt, which
+    /// blocks until the user responds. Serial so ordered toggles stay ordered.
+    private let systemQueue = DispatchQueue(label: "com.lelanddutcher.TuckBar.system", qos: .userInitiated)
 
     private let defaults = UserDefaults.standard
     private var ready = false
@@ -82,6 +95,9 @@ final class AppModel: ObservableObject {
         static let hideDock = "protectDock"
         static let snoozeDuration = "snoozeDurationMinutes"
         static let displayNames = "displayNames"
+        /// Marks that *we* enabled the global auto-hide, so a crash/force-quit that skips
+        /// `restoreForQuit` can be reconciled (and the bar restored) at next launch.
+        static let setAutohide = "tuckbarSetGlobalAutohide"
     }
 
     private init() {
@@ -115,19 +131,36 @@ final class AppModel: ObservableObject {
             object: nil, queue: .main
         ) { _ in Task { @MainActor in AppModel.shared.handleSpaceChange() } }
 
+        // Re-check Screen Recording when the user returns to the app after granting it.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil, queue: .main
+        ) { _ in Task { @MainActor in AppModel.shared.recheckPermission() } }
+
+        // NB: these observers live for the whole process (AppModel is a true singleton)
+        // and capture `AppModel.shared`, not `self`, so there's no retain cycle and no
+        // dangling-observer crash. A future de-singleton would need a `deinit` that
+        // removes them.
+
         ready = true
-        Task { @MainActor in AppModel.shared.evaluate() }
+        Task { @MainActor in
+            AppModel.shared.reconcileMenuBarAtLaunch()
+            AppModel.shared.evaluate()
+        }
     }
 
     private static func migrateFromMenuBarHideIfNeeded(into defaults: UserDefaults) {
         let migratedFlag = "migratedFromMenuBarHide"
         guard !defaults.bool(forKey: migratedFlag) else { return }
-        defaults.set(true, forKey: migratedFlag)
-        guard let old = UserDefaults(suiteName: "com.lelanddutcher.MenuBarHide") else { return }
+        guard let old = UserDefaults(suiteName: "com.lelanddutcher.MenuBarHide") else {
+            defaults.set(true, forKey: migratedFlag)
+            return
+        }
         for key in [Keys.enabled, Keys.protectedIDs, Keys.hideDock, Keys.snoozeDuration, Keys.displayNames]
         where defaults.object(forKey: key) == nil {
             if let value = old.object(forKey: key) { defaults.set(value, forKey: key) }
         }
+        defaults.set(true, forKey: migratedFlag)
     }
 
     // MARK: - Display tracking
@@ -198,6 +231,7 @@ final class AppModel: ObservableObject {
             cover.removeAll()
             setGlobalAutohide(false)
             restoreDock()
+            needsScreenRecording = false
             return
         }
 
@@ -210,38 +244,122 @@ final class AppModel: ObservableObject {
             // Multiple displays → cover the protected one(s), keep the others' bars.
             setGlobalAutohide(false)
             cover.update(displayIDs: Set(present.map(\.displayID)), opacity: coverOpacity, usesWallpaper: coverUsesWallpaper)
-            startRevealTracking()
+            updateRevealTracking()
         }
 
         if hideDockWhenProtected {
             if savedDock == nil { savedDock = SystemSettings.dockAutohide() }
-            if !SystemSettings.dockAutohide() { SystemSettings.setDockAutohide(true) }
+            if savedDock == false { setDockAutohideAsync(true) }
         } else {
             restoreDock()
         }
+
+        updatePermissionState()
     }
 
     private func refreshCovers() {
         guard isProtecting, displays.count > 1 else { return }
         cover.update(displayIDs: Set(protectedDisplaysPresent.map(\.displayID)), opacity: coverOpacity, usesWallpaper: coverUsesWallpaper)
+        updateRevealTracking()
+        updatePermissionState()
     }
 
-    /// Toggle the global OS auto-hide, only when it actually needs to change
-    /// (avoids redundant ControlCenter/SystemUIServer refreshes).
-    private func setGlobalAutohide(_ on: Bool) {
-        guard appliedAutohide != on else { return }
-        SystemSettings.setMenuBarVisibility(on ? .always : .never)
-        appliedAutohide = on
-    }
-
-    private func restoreDock() {
-        if let saved = savedDock {
-            SystemSettings.setDockAutohide(saved)
-            savedDock = nil
+    /// Track whether wallpaper capture needs Screen Recording permission, requesting it once.
+    private func updatePermissionState() {
+        let usingCapture = isProtecting && coverUsesWallpaper && displays.count > 1 && !protectedDisplaysPresent.isEmpty
+        if usingCapture && !ScreenCapture.hasPermission() {
+            needsScreenRecording = true
+            if !requestedScreenRecording {
+                requestedScreenRecording = true
+                ScreenCapture.requestPermission()
+            }
+        } else {
+            needsScreenRecording = false
         }
     }
 
+    /// Re-check Screen Recording (e.g. the user just granted it in System Settings and
+    /// came back) and re-render the cover in place — no relaunch needed.
+    func recheckPermission() {
+        guard ready else { return }
+        let wasMissing = needsScreenRecording
+        updatePermissionState()
+        if wasMissing && !needsScreenRecording && isProtecting {
+            cover.invalidateWallpaper()
+            refreshCovers()
+        }
+    }
+
+    func openScreenRecordingSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func openAutomationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - System toggles (off-main, ordered, failure-aware)
+
+    /// Toggle the global OS auto-hide. The blocking System Events call runs off-main;
+    /// `appliedAutohide` and the crash-recovery marker are only committed on success, so
+    /// a denied Automation prompt leaves us free to retry once it's granted.
+    private func setGlobalAutohide(_ on: Bool) {
+        guard appliedAutohide != on else { return }
+        let target: MenuBarVisibility = on ? .always : .never
+        systemQueue.async {
+            let ok = SystemSettings.setMenuBarVisibility(target)
+            Task { @MainActor in AppModel.shared.didApplyAutohide(on, success: ok) }
+        }
+    }
+
+    private func didApplyAutohide(_ on: Bool, success: Bool) {
+        if success {
+            appliedAutohide = on
+            defaults.set(on, forKey: Keys.setAutohide)
+            needsAutomation = false
+        } else {
+            needsAutomation = true   // leave appliedAutohide unset so a retry can fire
+        }
+    }
+
+    private func setDockAutohideAsync(_ on: Bool) {
+        systemQueue.async {
+            let ok = SystemSettings.setDockAutohide(on)
+            if !ok { Task { @MainActor in AppModel.shared.needsAutomation = true } }
+        }
+    }
+
+    private func restoreDock() {
+        guard let saved = savedDock else { return }
+        savedDock = nil
+        systemQueue.async {
+            // Only revert if the Dock is still auto-hiding (the state we set). If the user
+            // changed it themselves while protecting, leave their choice alone.
+            if SystemSettings.dockAutohide() {
+                _ = SystemSettings.setDockAutohide(saved)
+            }
+        }
+    }
+
+    /// If a prior session enabled the global auto-hide and didn't restore it (crash /
+    /// force-quit, where `applicationWillTerminate` never fires), clear it at launch so
+    /// the user is never stranded with a permanently hidden menu bar.
+    private func reconcileMenuBarAtLaunch() {
+        guard defaults.bool(forKey: Keys.setAutohide) else { return }
+        appliedAutohide = true       // so setGlobalAutohide(false) actually fires
+        setGlobalAutohide(false)
+    }
+
     // MARK: - Hover-reveal timer (drives MenuBarCover.tick)
+
+    /// Run the reveal poll only when there's actually a visible cover to reveal.
+    private func updateRevealTracking() {
+        if coverOpacity > 0.001 { startRevealTracking() } else { stopRevealTracking() }
+    }
 
     private func startRevealTracking() {
         guard revealTimer == nil else { return }
@@ -301,11 +419,8 @@ final class AppModel: ObservableObject {
 
     // MARK: - UI helpers
 
-    var statusSymbol: String {
-        if !isEnabled { return "shield.slash" }
-        if isSnoozing { return "timer" }
-        if isProtecting { return "shield.lefthalf.filled" }
-        return "shield"
+    var statusGlyph: NSImage {
+        MenuBarGlyph.current(snoozing: isSnoozing, enabled: isEnabled)
     }
 
     func refreshAll() { refreshDisplays() }
@@ -320,8 +435,16 @@ final class AppModel: ObservableObject {
     func restoreForQuit() {
         stopRevealTracking()
         cover.removeAll()
-        setGlobalAutohide(false)
-        restoreDock()
+        // Clear the crash-recovery marker synchronously and restore the bar/Dock.
+        defaults.set(false, forKey: Keys.setAutohide)
+        if appliedAutohide == true {
+            _ = SystemSettings.setMenuBarVisibility(.never)
+            appliedAutohide = false
+        }
+        if let saved = savedDock {
+            savedDock = nil
+            if SystemSettings.dockAutohide() { _ = SystemSettings.setDockAutohide(saved) }
+        }
     }
 
     func quit() {

@@ -10,7 +10,7 @@ struct TuckBarApp: App {
             MenuContent()
                 .environmentObject(model)
         } label: {
-            Image(systemName: model.statusSymbol)
+            Image(nsImage: model.statusGlyph)
         }
         .menuBarExtraStyle(.window)
     }

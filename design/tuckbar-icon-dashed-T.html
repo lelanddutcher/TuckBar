@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TuckBar — centered dashed-T</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color: #e9e9ee; -webkit-font-smoothing: antialiased;
+    background: radial-gradient(140% 100% at 50% -10%, #3a2c4d 0%, #1c1b2a 45%, #0c0c12 100%);
+    min-height: 100vh; padding: 52px 24px 90px;
+  }
+  .wordmark { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 6px; }
+  .wordmark .glyph { position: relative; width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(#202028, #0d0d12); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+  .wordmark .glyph::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 5px; background: #000; border-radius: 0 0 4px 4px; }
+  .wordmark h1 { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .wordmark h1 b { color: #ff9f0a; }
+  .tagline { text-align: center; color: #9a9aac; margin: 0 auto 40px; max-width: 560px; }
+
+  .grid { display: flex; flex-wrap: wrap; gap: 34px 30px; justify-content: center; max-width: 880px; margin: 0 auto; }
+  .card { width: 250px; }
+  .stage {
+    display: flex; align-items: flex-end; gap: 16px;
+    padding: 22px 22px 20px; border-radius: 20px;
+    background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    border: 1px solid rgba(255,255,255,.07);
+  }
+  .icon-lg { width: 124px; height: 124px; filter: drop-shadow(0 12px 22px rgba(0,0,0,.5)); }
+  .smalls { display: flex; flex-direction: column; gap: 9px; align-items: center; padding-bottom: 4px; }
+  .icon-md { width: 48px; height: 48px; }
+  .icon-sm { width: 24px; height: 24px; }
+  .smalls span { font-size: 9px; color: #70707f; }
+  .card h3 { font-size: 15px; font-weight: 600; margin: 16px 0 3px; }
+  .card p { font-size: 12.5px; color: #9a9aac; }
+  .chip { display: inline-block; margin-top: 8px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .chip.rec { color: #ff9f0a; border: 1px solid rgba(255,159,10,.45); }
+  .chip.alt { color: #9aa7ff; border: 1px solid rgba(154,167,255,.4); }
+  .footnote { max-width: 660px; margin: 54px auto 0; text-align: center; color: #7e7e90; font-size: 12.5px; line-height: 1.7; }
+  .footnote code { color: #c9c9d6; background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; }
+  .footnote b { color: #c9c9d6; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wordmark"><span class="glyph"></span><h1>Tuck<b>Bar</b></h1></div>
+  <p class="tagline">A centered T — solid bar + notch brought down, a narrow dashed-rectangle stem merged up into it. Dialing the stem width. Shown at 124 / 48 / 24px.</p>
+
+  <!-- ============ shared defs + symbols ============ -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2b2b33"/><stop offset=".55" stop-color="#141417"/><stop offset="1" stop-color="#08080a"/>
+      </linearGradient>
+      <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6e6ec"/>
+      </linearGradient>
+      <clipPath id="sq"><rect x="6" y="6" width="128" height="128" rx="30"/></clipPath>
+    </defs>
+
+    <!-- 1 · Tight stem -->
+    <symbol id="v1" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="58" y="44" width="24" height="62" rx="8" fill="none" stroke="url(#bar)" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+        <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+        <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- 2 · Balanced stem -->
+    <symbol id="v2" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="54" y="44" width="32" height="62" rx="10" fill="none" stroke="url(#bar)" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+        <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+        <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+
+    <!-- 3 · Wider stem -->
+    <symbol id="v3" viewBox="0 0 140 140">
+      <g clip-path="url(#sq)">
+        <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+        <rect x="50" y="44" width="40" height="62" rx="12" fill="none" stroke="url(#bar)" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+        <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+        <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+      </g>
+      <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+    </symbol>
+  </svg>
+
+  <!-- ============ cards ============ -->
+  <div class="grid">
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#v1"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#v1"/></svg><svg class="icon-sm"><use href="#v1"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>1 · Tight stem</h3>
+      <p>Narrowest stem (24u) — reads most like a capital T. Most letterform, least “screen.”</p>
+      <span class="chip alt">letterform</span>
+    </div>
+
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#v2"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#v2"/></svg><svg class="icon-sm"><use href="#v2"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>2 · Balanced stem</h3>
+      <p>Even stem (32u) merged into the bar. The T sits centered; its lower half is just a dashed outline.</p>
+      <span class="chip rec">recommended</span>
+    </div>
+
+    <div class="card">
+      <div class="stage">
+        <svg class="icon-lg"><use href="#v3"/></svg>
+        <div class="smalls"><svg class="icon-md"><use href="#v3"/></svg><svg class="icon-sm"><use href="#v3"/></svg><span>48 · 24</span></div>
+      </div>
+      <h3>3 · Wider stem</h3>
+      <p>Roomier stem (40u) — a touch more “rectangle,” still clearly a T. Holds up better when small.</p>
+      <span class="chip alt">roomy</span>
+    </div>
+  </div>
+
+  <p class="footnote">
+    The centered T you described: solid bar + the <b>T1 notch</b> brought down off the top edge, and a narrow
+    <b>dashed-rectangle stem merged up into it</b> — the bar is the rectangle’s top edge (like the screen frame), no gap, no hook.
+    The three differ only in stem width; my lean is <b>#2</b>. Same small-size note (this is the app icon; the solid Minimal mark stays the menu-bar glyph).
+    Tunable: stem width, stem height, dash size, corner radius, and how far down the bar sits. Pick one and I’ll master it at <code>1024px</code> → <code>.icns</code> into the bundle.
+  </p>
+</body>
+</html>

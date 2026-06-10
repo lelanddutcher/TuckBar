@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TuckBar — untuck (fill-in) animation</title>
+<style>
+  :root { --mult: 1; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    color: #e9e9ee; -webkit-font-smoothing: antialiased;
+    background: radial-gradient(140% 100% at 50% -10%, #3a2c4d 0%, #1c1b2a 45%, #0c0c12 100%);
+    min-height: 100vh; padding: 56px 24px 90px;
+  }
+  .wordmark { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 6px; }
+  .wordmark .glyph { position: relative; width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(#202028, #0d0d12); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+  .wordmark .glyph::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 5px; background: #000; border-radius: 0 0 4px 4px; }
+  .wordmark h1 { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .wordmark h1 b { color: #ff9f0a; }
+  .tagline { text-align: center; color: #9a9aac; margin: 0 auto 28px; max-width: 580px; }
+
+  .controls { display: flex; gap: 10px; justify-content: center; margin-bottom: 44px; }
+  .controls button {
+    font: inherit; font-size: 13px; color: #e9e9ee;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+    padding: 7px 14px; border-radius: 999px; cursor: pointer; transition: background .15s ease, transform .05s ease;
+  }
+  .controls button:hover { background: rgba(255,255,255,.12); }
+  .controls button:active { transform: scale(.96); }
+  .controls button.on { background: #ff9f0a; color: #1a1205; border-color: transparent; }
+
+  .grid { display: flex; flex-wrap: wrap; gap: 44px; justify-content: center; align-items: flex-start; max-width: 760px; margin: 0 auto; }
+  .concept { width: 200px; text-align: center; }
+  .icon-lg { width: 160px; height: 160px; filter: drop-shadow(0 14px 26px rgba(0,0,0,.5)); }
+  .smalls { display: flex; gap: 12px; justify-content: center; align-items: center; margin-top: 14px; }
+  .icon-sm { width: 28px; height: 28px; }
+  .smalls span { font-size: 9px; color: #70707f; }
+  .concept h3 { font-size: 15px; font-weight: 600; margin: 16px 0 4px; }
+  .concept p { font-size: 12.5px; color: #9a9aac; }
+  .pick { display: inline-block; margin-top: 9px; font-size: 11px; font-weight: 600; color: #ff9f0a; border: 1px solid rgba(255,159,10,.4); padding: 2px 9px; border-radius: 999px; }
+
+  /* the untuck: dashed stem fills solid, then recedes back to dashed */
+  .fill {
+    transform-box: fill-box; transform-origin: center top;
+    animation: fillUp calc(4s * var(--mult)) cubic-bezier(.6, 0, .25, 1) infinite;
+  }
+  @keyframes fillUp {
+    0%, 14%  { transform: scaleY(0); }   /* tucked — dashes only */
+    42%      { transform: scaleY(1); }   /* untucked — filled solid */
+    72%      { transform: scaleY(1); }   /* held out */
+    100%     { transform: scaleY(0); }   /* tucks back up */
+  }
+  .dashAnim { animation: dashFade calc(4s * var(--mult)) cubic-bezier(.6, 0, .25, 1) infinite; }
+  @keyframes dashFade {
+    0%, 14%  { opacity: 1; }
+    42%, 72% { opacity: 0; }
+    100%     { opacity: 1; }
+  }
+  body.paused .fill, body.paused .dashAnim { animation-play-state: paused; }
+
+  .footnote { max-width: 640px; margin: 56px auto 0; text-align: center; color: #7e7e90; font-size: 12.5px; line-height: 1.7; }
+  .footnote code { color: #c9c9d6; background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; }
+  .footnote b { color: #c9c9d6; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wordmark"><span class="glyph"></span><h1>Tuck<b>Bar</b></h1></div>
+  <p class="tagline">Untuck = fill it in. Reveal the menu bar and the dashed stem of the T fills solid — a state for the glyph, and an animation for the web.</p>
+
+  <div class="controls">
+    <button id="slow">Slow-mo</button>
+    <button id="pause">Pause</button>
+  </div>
+
+  <!-- shared defs -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2b2b33"/><stop offset=".55" stop-color="#141417"/><stop offset="1" stop-color="#08080a"/>
+      </linearGradient>
+      <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6e6ec"/>
+      </linearGradient>
+      <clipPath id="tile"><rect x="6" y="6" width="128" height="128" rx="30"/></clipPath>
+    </defs>
+  </svg>
+
+  <div class="grid">
+
+    <!-- Tucked (dashed) -->
+    <div class="concept">
+      <svg class="icon-lg" viewBox="0 0 140 140">
+        <g clip-path="url(#tile)">
+          <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+          <rect x="58" y="44" width="24" height="62" rx="8" fill="none" stroke="url(#bar)" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+          <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+          <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+        </g>
+        <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+      </svg>
+      <svg class="icon-sm" viewBox="0 0 140 140">
+        <g clip-path="url(#tile)">
+          <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+          <rect x="58" y="44" width="24" height="62" rx="8" fill="none" stroke="url(#bar)" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+          <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+          <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+        </g>
+      </svg>
+      <h3>Tucked</h3>
+      <p>Menu bar hidden — the stem stays dashed, tucked away.</p>
+    </div>
+
+    <!-- Untuck (animated) -->
+    <div class="concept">
+      <svg class="icon-lg" viewBox="0 0 140 140">
+        <g clip-path="url(#tile)">
+          <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+          <rect class="dashAnim" x="58" y="44" width="24" height="62" rx="8" fill="none" stroke="url(#bar)" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+          <rect class="fill" x="58" y="44" width="24" height="62" rx="8" fill="url(#bar)"/>
+          <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+          <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+        </g>
+        <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+      </svg>
+      <svg class="icon-sm" viewBox="0 0 140 140">
+        <g clip-path="url(#tile)">
+          <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+          <rect class="dashAnim" x="58" y="44" width="24" height="62" rx="8" fill="none" stroke="url(#bar)" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 9"/>
+          <rect class="fill" x="58" y="44" width="24" height="62" rx="8" fill="url(#bar)"/>
+          <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+          <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+        </g>
+      </svg>
+      <h3>Untuck →</h3>
+      <p>Reveal it and the stem fills in solid, then recedes back up when it re-tucks.</p>
+      <span class="pick">the animation</span>
+    </div>
+
+    <!-- Untucked (solid) -->
+    <div class="concept">
+      <svg class="icon-lg" viewBox="0 0 140 140">
+        <g clip-path="url(#tile)">
+          <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+          <rect x="58" y="44" width="24" height="62" rx="8" fill="url(#bar)"/>
+          <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+          <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+        </g>
+        <rect x="6" y="6" width="128" height="128" rx="30" fill="none" stroke="rgba(255,255,255,.07)"/>
+      </svg>
+      <svg class="icon-sm" viewBox="0 0 140 140">
+        <g clip-path="url(#tile)">
+          <rect x="6" y="6" width="128" height="128" fill="url(#screen)"/>
+          <rect x="58" y="44" width="24" height="62" rx="8" fill="url(#bar)"/>
+          <rect x="18" y="38" width="104" height="16" rx="8" fill="url(#bar)"/>
+          <path d="M55 38 H85 V44 Q85 50 79 50 H61 Q55 50 55 44 Z" fill="#000"/>
+        </g>
+      </svg>
+      <h3>Untucked</h3>
+      <p>Menu bar out — the stem is solid and whole.</p>
+    </div>
+
+  </div>
+
+  <p class="footnote">
+    The idea: while the bar is <b>untucked</b> (your manual reveal / snooze), the menu-bar glyph becomes this
+    <b>filled-in T</b> instead of the generic timer — the icon shows its own state. The dashed→solid fill also makes a
+    clean loop for the <b>website hero</b> and the <b>in-app reveal</b>. The small column shows it at glyph size:
+    the solid end-state reads fine; the dashes only resolve when large, so the menu bar would use the solid form.
+    Timing, fill direction (down-from-bar vs. rise-up), and easing are all tunable.
+  </p>
+
+<script>
+  const root = document.documentElement;
+  const slow = document.getElementById('slow');
+  const pause = document.getElementById('pause');
+  slow.addEventListener('click', () => {
+    const on = slow.classList.toggle('on');
+    root.style.setProperty('--mult', on ? 3 : 1);
+  });
+  pause.addEventListener('click', () => {
+    pause.classList.toggle('on');
+    document.body.classList.toggle('paused');
+  });
+</script>
+</body>
+</html>
