@@ -1,52 +1,48 @@
 <p align="center">
-  <img src="design/tuckbar-social.png" alt="TuckBar — tuck your menu bar away on the displays you choose" width="100%">
+  <img src="design/tuckbar-social.png" alt="TuckBar, tuck your menu bar away on the displays you choose" width="100%">
 </p>
 
 # TuckBar
 
-**Tuck your menu bar away — and pull it back the second you want it.**
+hide the macos menu bar on the displays you pick. it tucks the bar away so it stops burning into your oled, and brings it back the second you reach for it.
 
-TuckBar hides the macOS menu bar on the displays *you* choose, so it stops baking itself into your OLED panel and gets out of the way for a cleaner screen. Reach for the top edge and it slides right back.
+it's auto-hide the dock, but for the menu bar, and per-monitor. macos won't do that on its own. that's the whole reason this exists.
 
-It's the menu-bar equivalent of "auto-hide the Dock" — except macOS won't let you do that **per monitor**, and that's the whole point of TuckBar.
+> v0.1, built in the open. issues and ideas welcome.
 
-> Early days — v0.1, built in the open. Issues and ideas welcome.
+## why
 
-## Why
+the menu bar is bright, static, and always on. on an oled that's burn-in. on any screen it's clutter you don't need while you're working.
 
-The macOS menu bar is bright, static, and always-on. On an OLED (or any display you'd rather keep clean) that's two problems:
+macos can auto-hide the menu bar, but only everywhere at once. tuckbar makes it per-display. tag your oled, tuck its bar, and your other monitor keeps its bar right where it is.
 
-- **Burn-in fuel** — the same bright bar in the same pixels, hour after hour.
-- **Visual clutter** — chrome you don't need while you're heads-down.
+## the part macos won't do
 
-macOS *can* auto-hide the menu bar, but it's **all-or-nothing across every display**. TuckBar makes it **per-display**: tag the monitor you want kept clean (say, your OLED) and TuckBar tucks *its* menu bar while every other monitor keeps its bar exactly where it is.
+there's no api to hide the menu bar on one display. so tuckbar does it the honest way: it covers the tagged display's menu-bar strip and fills it with that display's real wallpaper, captured live with screencapturekit. the bar doesn't go black, it just vanishes. the wallpaper runs clean to the top.
 
-## The trick: a real per-monitor menu bar
+reach for the top edge and the cover steps aside so you can use the real bar. move away and it tucks back.
 
-There's no public API to hide the menu bar on a single display, so TuckBar does it the honest way: it lays a thin cover over the tagged display's menu-bar strip and **fills it with that display's actual wallpaper pixels**, captured live with ScreenCaptureKit. The bar appears to simply vanish — the wallpaper runs clean to the top edge, no seam, no black band. Move your pointer up there and the cover steps aside so you can use the real bar; move away and it tucks back.
+want max protection instead of seamless? flip the cover to solid black, pixels off. or drag the slider and just dim the bar.
 
-Prefer maximum burn-in protection over seamlessness? Flip the cover to **solid black** (pixels off), or use the slider to just **dim** the bar instead of hiding it.
+> if the tagged display is your only screen there's nowhere to put the bar, so tuckbar falls back to the native auto-hide, same hover-to-reveal.
 
-> When the tagged display is your *only* screen, there's nowhere else to put the bar — so TuckBar falls back to the native system auto-hide (with the same hover-to-reveal) instead of covering it.
+## what it does
 
-## Features
+- tag the displays you want tucked. the rest keep their bar.
+- seamless wallpaper cover, solid black, or anywhere between on the dim slider.
+- hover the top edge to get the real bar back, then it re-tucks.
+- untuck for 5 to 60 minutes when you need the bar for a recording or a finicky app. it re-tucks itself.
+- hide the dock too, optionally, while a tagged display is connected.
+- tucks on connect, restores on unplug.
+- lives in the menu bar, opens at login if you want, puts everything back when you quit.
 
-- **Per-display tagging** — tuck the menu bar on the displays you choose; the rest keep theirs.
-- **Seamless or black** — a wallpaper-matched cover (looks like the bar's just gone) or pixels-off black, with a dim slider in between.
-- **Hover to reveal** — the real menu bar comes back when you reach for it, then re-tucks when you leave.
-- **Untuck** — need the bar for a while (a recording, a finicky app)? Untuck it for 5–60 minutes and it re-tucks itself.
-- **Also hide the Dock** — optional, while a tagged display is connected.
-- **Tuck on connect** — tucks automatically when a tagged display is plugged in, restores when it's unplugged.
-- **Stays out of the way** — lives in the menu bar, opens at login if you want, and puts everything back when you quit.
+## requirements
 
-## Requirements
+macos 14 or later. apple silicon or intel.
 
-- macOS 14 (Sonoma) or later
-- Apple Silicon or Intel
+## install
 
-## Install
-
-It's a tiny Swift package with no dependencies — build it yourself:
+tiny swift package, no dependencies. build it:
 
 ```bash
 git clone https://github.com/lelanddutcher/TuckBar.git
@@ -55,47 +51,44 @@ cd TuckBar
 open build/TuckBar.app
 ```
 
-That assembles `build/TuckBar.app`; drag it to `/Applications` if you like.
+drag `build/TuckBar.app` to /Applications if you want. it's ad-hoc signed right now, so the first launch needs a right-click then open to get past gatekeeper.
 
-> TuckBar is currently **ad-hoc signed** (not notarized), so the first time you open it you may need to right-click → **Open** to get past Gatekeeper.
+## permissions
 
-## Permissions
+- screen recording, for the seamless cover. it reads the wallpaper pixels behind the tagged display's menu bar, that's it. nothing gets recorded or saved. skip it and you just get the black cover.
+- automation (system events), only for the single-display auto-hide fallback and the optional dock hiding. same call system settings makes.
 
-TuckBar asks for these the first time it needs them:
+a seamless second-monitor setup needs screen recording and nothing else.
 
-- **Screen Recording** — to read the wallpaper pixels for the seamless cover. It captures only the menu-bar strip of the tagged display; nothing is recorded or saved. Without it, the cover simply falls back to black.
-- **Automation (System Events)** — only for the single-display auto-hide fallback and the optional "also hide the Dock," driven the same way System Settings does it.
+## how it works
 
-A seamless-on-a-second-monitor setup needs only Screen Recording; the rest is optional.
+- two or more displays: a borderless window covers the tagged display's menu-bar strip, above the menu-bar level, on every space, filled with the live wallpaper slice or black. a cheap poll reveals it on hover and gets it out of the way under full-screen apps.
+- one display: native menu-bar auto-hide, so you always have a way to reach the bar.
+- capture: screencapturekit grabs the dock's per-display wallpaper window, clipped to the strip, and re-grabs when the wallpaper or space changes.
+- if it ever gets force-quit mid-tuck, it reconciles on the next launch and restores the bar. you don't get stranded.
 
-## How it works
+## known limits
 
-- **Multiple displays** → a borderless cover window sits over the tagged display's menu-bar strip (above the menu-bar window level, on every Space), filled with the live wallpaper slice or black. A lightweight poll reveals it on hover and steps it aside under full-screen apps.
-- **Single display** → native menu-bar auto-hide, so you're never left without a way to reach the bar.
-- **Wallpaper capture** → ScreenCaptureKit grabs the Dock's per-display wallpaper window, clipped to the strip, and re-captures when the wallpaper or Space changes.
-- **Restore** → quitting uncovers everything; if TuckBar is ever force-quit mid-tuck, it reconciles on next launch and restores the bar, so you're never stranded.
+- hiding the bar on a single display uses the system auto-hide, which is global on that mac. no per-display api exists for it.
+- the seamless cover needs screen recording. without it you get the black cover.
+- dynamic time-of-day wallpapers are best-effort. it re-captures on change, but a slow same-image shift can lag a beat.
 
-## Known limitations
-
-- Hiding the bar on a *single* display uses the system auto-hide, which is global on that Mac — there's no per-display API for it.
-- The seamless cover needs Screen Recording; without it you get the (still useful) black cover.
-- Best-effort for dynamic / time-of-day wallpapers: it re-captures on change, but a slow same-image shift can lag by a moment.
-
-## Building
+## building
 
 ```bash
 swift build -c release        # compile
-./scripts/build-app.sh        # assemble the signed .app bundle
-swift build                   # debug build
+./scripts/build-app.sh        # assemble the .app
+swift build                   # debug
 ```
 
-The icon and social art regenerate from source (CoreGraphics, no external tools):
+icon and social art regenerate from source, no external tools:
 
 ```bash
-./scripts/make-icon.sh                          # → Resources/AppIcon.icns
-swift scripts/make-thumbnail.swift out.png      # → social card
+./scripts/make-icon.sh
+swift scripts/make-thumbnail.swift design/tuckbar-social.png
+swift scripts/make-screenshots.swift store/screenshots
 ```
 
-## License
+## license
 
-MIT — see [LICENSE](LICENSE).
+mit. see [LICENSE](LICENSE).

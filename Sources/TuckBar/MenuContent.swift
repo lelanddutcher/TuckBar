@@ -97,7 +97,7 @@ struct MenuContent: View {
                     Image(systemName: "eye").font(.system(size: 16)).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Need the menu bar?").font(.callout.weight(.medium))
-                        Text("Untuck it for a bit — it re-tucks itself.")
+                        Text("Untuck it for a bit, it re-tucks itself.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -170,7 +170,7 @@ struct MenuContent: View {
             Toggle(isOn: $model.coverUsesWallpaper) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Match desktop wallpaper").font(.callout)
-                    Text(model.coverUsesWallpaper ? "Seamless — the bar just disappears" : "Solid black — pixels off, max protection")
+                    Text(model.coverUsesWallpaper ? "Seamless, the bar just disappears" : "Solid black, pixels off for max protection")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }
@@ -180,7 +180,7 @@ struct MenuContent: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Grant Screen Recording for seamless wallpaper")
                         .font(.caption2.weight(.semibold)).foregroundStyle(.orange)
-                    Text("TuckBar reads the wallpaper pixels (the screen isn't recorded). Enable it, then reopen this menu — until then the cover shows black.")
+                    Text("TuckBar reads the wallpaper pixels (the screen isn't recorded). Enable it, then reopen this menu. Until then the cover shows black.")
                         .font(.caption2).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Open Screen Recording settings…") { model.openScreenRecordingSettings() }
@@ -192,7 +192,7 @@ struct MenuContent: View {
             }
 
             if model.usingAutohideFallback {
-                Text("Only one display connected — using native auto-hide. The slider applies with 2+ displays.")
+                Text("Only one display connected, so it uses native auto-hide. The slider applies with 2+ displays.")
                     .font(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
