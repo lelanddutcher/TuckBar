@@ -36,10 +36,6 @@ want max protection instead of seamless? flip the cover to solid black, pixels o
 - tucks on connect, restores on unplug.
 - lives in the menu bar, opens at login if you want, puts everything back when you quit.
 
-## requirements
-
-macos 14 or later. apple silicon or intel.
-
 ## install
 
 tiny swift package, no dependencies. build it:
