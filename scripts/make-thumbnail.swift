@@ -105,20 +105,20 @@ func draw() {
     splash(1120, 120, 640, 0.42)
     splash(120, 580, 460, 0.2)
 
-    wordmark(x: 88, y: 80, glyph: 60)
+    wordmark(x: 88, y: 84, glyph: 54)
     (("Tuck your menu bar away, and pull it\nback the second you want it.") as NSString).draw(
-        in: NSRect(x: 86, y: 196, width: 620, height: 150),
-        withAttributes: [.font: NSFont.systemFont(ofSize: 38, weight: .bold), .foregroundColor: NSColor.white,
-                         .paragraphStyle: { let p = NSMutableParagraphStyle(); p.lineSpacing = 5; return p }()])
+        in: NSRect(x: 88, y: 204, width: 600, height: 120),
+        withAttributes: [.font: NSFont.systemFont(ofSize: 30, weight: .bold), .foregroundColor: NSColor.white,
+                         .paragraphStyle: { let p = NSMutableParagraphStyle(); p.lineSpacing = 4; return p }()])
     ("Saves OLED burn-in and hands you a cleaner screen. Per-monitor: tuck the displays you choose, keep the bar on the ones you don't." as NSString).draw(
-        in: NSRect(x: 88, y: 360, width: 560, height: 170),
-        withAttributes: [.font: NSFont.systemFont(ofSize: 21), .foregroundColor: color(0xb9b9c6),
-                         .paragraphStyle: { let p = NSMutableParagraphStyle(); p.lineSpacing = 5; return p }()])
+        in: NSRect(x: 88, y: 332, width: 520, height: 160),
+        withAttributes: [.font: NSFont.systemFont(ofSize: 19), .foregroundColor: color(0xb9b9c6),
+                         .paragraphStyle: { let p = NSMutableParagraphStyle(); p.lineSpacing = 4; return p }()])
 
-    drawMonitor(centerX: 850, top: 250, width: 290, style: "clean", accent: true)
-    drawMonitor(centerX: 1130, top: 296, width: 290, style: "bar", accent: false)
-    label("tagged · tucked", cx: 850, y: 470, amber)
-    label("untagged · bar stays", cx: 1130, y: 510, color(0xb9b9c6))
+    drawMonitor(centerX: 858, top: 262, width: 268, style: "clean", accent: true)
+    drawMonitor(centerX: 1124, top: 304, width: 268, style: "bar", accent: false)
+    label("tagged · tucked", cx: 858, y: 466, amber, size: 18)
+    label("untagged · bar stays", cx: 1124, y: 502, color(0xb9b9c6), size: 18)
 }
 
 let out = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "tuckbar-social.png"
