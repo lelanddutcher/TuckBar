@@ -3,3 +3,9 @@ build/
 .swiftpm/
 .DS_Store
 *.xcodeproj
+
+# local dev build output (contains a signed .app; never commit)
+build-dev/
+
+# local Claude Code config / worktrees
+.claude/
