@@ -19,6 +19,9 @@ final class MenuBarCover {
     private var wallpaperDirty = true                       // reload images on next configure
     private var renderedKey: [CGDirectDisplayID: String] = [:]   // wallpaper identity last rendered
     private var lastWallpaperCheck = Date.distantPast
+    private var wallpaperSig: [CGDirectDisplayID: [UInt8]] = [:]   // pixel fingerprint per display
+    private var lastSignatureCheck = Date.distantPast
+    private var signatureProbeInFlight = false
     private let lingerSeconds: TimeInterval = 0.7
 
     var isActive: Bool { !windows.isEmpty }
@@ -35,6 +38,7 @@ final class MenuBarCover {
             revealedUntil.removeValue(forKey: id)
             covered.removeValue(forKey: id)
             styleIsWallpaper.removeValue(forKey: id)
+            wallpaperSig.removeValue(forKey: id)
         }
 
         for id in displayIDs {
@@ -51,7 +55,10 @@ final class MenuBarCover {
                 || styleIsWallpaper[id] != usesWallpaper
                 || (usesWallpaper && wallpaperDirty)
             if needsConfigure {
-                configure(win, for: screen, usesWallpaper: usesWallpaper)
+                // only a wallpaper re-grab (same window, same style) → keep the current
+                // strip up until the new one lands instead of flashing black
+                let refreshOnly = !isNew && styleIsWallpaper[id] == usesWallpaper
+                configure(win, for: screen, usesWallpaper: usesWallpaper, refreshOnly: refreshOnly)
                 styleIsWallpaper[id] = usesWallpaper
                 renderedKey[id] = usesWallpaper ? Self.wallpaperKey(for: screen) : nil
             }
@@ -65,7 +72,7 @@ final class MenuBarCover {
     func removeAll() {
         for win in windows.values { win.orderOut(nil) }
         windows.removeAll(); revealedUntil.removeAll(); covered.removeAll(); styleIsWallpaper.removeAll()
-        renderedKey.removeAll()
+        renderedKey.removeAll(); wallpaperSig.removeAll()
         wallpaperDirty = true
     }
 
@@ -98,8 +105,13 @@ final class MenuBarCover {
         maybeRefreshWallpaper()
     }
 
-    /// Detect a wallpaper change (new image, scaling, or fill) on a covered display
-    /// and re-render that cover. Throttled to ~1×/sec; safe to call every tick.
+    /// Detect a wallpaper change on a covered display and re-render that cover.
+    /// Throttled; safe to call every tick.
+    ///
+    /// Two signals, because neither alone is enough: the `wallpaperKey` catches classic
+    /// per-display changes (image URL, scaling, fill), while a small pixel fingerprint
+    /// catches everything the modern wallpaper system hides behind a constant stub URL —
+    /// light/dark switches, time-of-day shifts, and picking a new dynamic wallpaper.
     private func maybeRefreshWallpaper() {
         let now = Date()
         guard now.timeIntervalSince(lastWallpaperCheck) >= 1.0 else { return }
@@ -110,6 +122,26 @@ final class MenuBarCover {
             if renderedKey[id] != key {
                 configure(win, for: screen, usesWallpaper: true)
                 renderedKey[id] = key
+            }
+        }
+
+        // pixel fingerprint: slower cadence, and never more than one probe in flight
+        guard now.timeIntervalSince(lastSignatureCheck) >= 2.0, !signatureProbeInFlight else { return }
+        lastSignatureCheck = now
+        let targets = windows.filter { styleIsWallpaper[$0.key] == true }.map(\.key)
+        guard !targets.isEmpty, ScreenCapture.hasPermission() else { return }
+        signatureProbeInFlight = true
+        Task { @MainActor in
+            defer { self.signatureProbeInFlight = false }
+            for id in targets {
+                guard let win = self.windows[id], let screen = Self.screen(for: id) else { continue }
+                let barHeight = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
+                guard let print = await ScreenCapture.wallpaperFingerprint(displayID: id, barHeight: barHeight) else { continue }
+                guard self.windows[id] === win, self.styleIsWallpaper[id] == true else { continue }
+                if let previous = self.wallpaperSig[id], ScreenCapture.fingerprintsDiffer(previous, print) {
+                    self.configure(win, for: screen, usesWallpaper: true, refreshOnly: true)
+                }
+                self.wallpaperSig[id] = print
             }
         }
     }
@@ -134,6 +166,10 @@ final class MenuBarCover {
         win.ignoresMouseEvents = true
         win.hasShadow = false
         win.isReleasedWhenClosed = false
+        // Snap in/out with no system show/hide animation. The default behavior lets macOS
+        // scale/fade the window as it orders in (a "width-wise pop" on Tahoe), which reads
+        // as the wallpaper tearing. The cover must just appear/vanish.
+        win.animationBehavior = .none
         let view = NSView()
         view.wantsLayer = true
         win.contentView = view
@@ -145,20 +181,38 @@ final class MenuBarCover {
     /// Screen Recording permission isn't granted yet. Capture is async (ScreenCaptureKit),
     /// so the cover shows black until the strip arrives; a per-display generation token
     /// drops stale captures after a fast style / Space switch.
-    private func configure(_ win: NSWindow, for screen: NSScreen, usesWallpaper: Bool) {
+    /// `refreshOnly` re-captures a cover that is already painted (the wallpaper changed).
+    /// In that case the old strip stays on screen until the new one is ready and is then
+    /// swapped in one step — blanking to black first would flash the cover on every
+    /// refresh, which reads as flicker.
+    private func configure(_ win: NSWindow, for screen: NSScreen, usesWallpaper: Bool, refreshOnly: Bool = false) {
         guard let base = win.contentView?.layer else { return }
         base.masksToBounds = true
         base.contentsScale = screen.backingScaleFactor
+        // Kill implicit Core Animation on the cover layer. Otherwise resizing the window
+        // from its initial .zero rect animates the layer's bounds/contents from zero to
+        // full width (the "width-wise pop"), stretching the captured strip mid-grow and
+        // tearing it against the wallpaper. The cover must update instantly.
+        let noAnim = NSNull()
+        base.actions = [
+            "contents": noAnim, "bounds": noAnim, "position": noAnim, "backgroundColor": noAnim,
+            "sublayers": noAnim, "opacity": noAnim, "hidden": noAnim,
+            "onOrderIn": noAnim, "onOrderOut": noAnim,
+        ]
         base.sublayers?.forEach { $0.removeFromSuperlayer() }
 
         let id = Self.displayID(for: screen)
         if let id { wallpaperGen[id, default: 0] += 1 }      // invalidate any in-flight capture
         let token = id.flatMap { wallpaperGen[$0] }
 
-        // Black immediately (this is also the fallback when capture is unavailable).
-        base.isGeometryFlipped = false
-        base.contents = nil
-        base.backgroundColor = NSColor.black.cgColor
+        // Black immediately (this is also the fallback when capture is unavailable), but
+        // never wipe a cover that's already showing a good strip — see `refreshOnly`.
+        let keepExisting = refreshOnly && usesWallpaper && base.contents != nil
+        if !keepExisting {
+            base.isGeometryFlipped = false
+            base.contents = nil
+            base.backgroundColor = NSColor.black.cgColor
+        }
 
         guard usesWallpaper, let id, let token, ScreenCapture.hasPermission() else { return }
         let barHeight = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
@@ -167,6 +221,8 @@ final class MenuBarCover {
             guard let image = await ScreenCapture.wallpaperStrip(displayID: id, barHeight: barHeight, scale: scale),
                   self.wallpaperGen[id] == token else { return }
             base.isGeometryFlipped = true     // captured CGImage is top-left origin
+            // half-float (HDR) captures need an extended-range layer or they get clamped
+            base.wantsExtendedDynamicRangeContent = image.bitsPerComponent > 8
             base.contents = image
             base.contentsGravity = .resize    // captured image IS the strip → fill 1:1
         }
