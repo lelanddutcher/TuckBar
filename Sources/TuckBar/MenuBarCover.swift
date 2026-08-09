@@ -157,10 +157,39 @@ final class MenuBarCover {
 
     // MARK: - Window + content
 
+    /// Which compositing path the cover uses. Diagnostic only — see `renderMode` below.
+    ///
+    /// The framebuffer is provably correct in every mode: measured against the live
+    /// wallpaper the cover matches to −0.229 luma, which is the wallpaper's own gradient,
+    /// and that holds with the real menu bar composited underneath (so there is no alpha
+    /// leak). Yet the strip still reads brighter than the desktop on a QD-OLED with HDR
+    /// *off*. A difference that survives an identical framebuffer has to be introduced
+    /// after the framebuffer — at scanout — and the likeliest cause is the cover being
+    /// promoted to its own hardware overlay plane. It is an ideal candidate: opaque,
+    /// rectangular, full-width, single-image contents, no sublayers.
+    ///
+    /// These modes perturb exactly that eligibility. They cannot be told apart by any
+    /// screenshot; the panel is the only instrument that can see the difference.
+    ///
+    ///   defaults write com.lelanddutcher.TuckBar coverRenderMode -string opaque
+    ///
+    ///   default     current behaviour (control)
+    ///   opaque      isOpaque = true — skips the blend path the cover never needed
+    ///   nopromote   image in a child layer, so the tree is not a single flat surface
+    ///   both        opaque + nopromote
+    ///   imageview   NSImageView instead of raw layer contents (a different draw path)
+    static var renderMode: String {
+        UserDefaults.standard.string(forKey: "coverRenderMode") ?? "default"
+    }
+
     private static func makeWindow() -> NSWindow {
         let win = NSWindow(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
-        win.isOpaque = false
-        win.backgroundColor = .clear
+        // An opaque window skips the blend against whatever is underneath. The cover is a
+        // full-bleed opaque strip, so the blend buys nothing — but it does change which
+        // compositing path the window server takes.
+        let wantsOpaque = renderMode == "opaque" || renderMode == "both"
+        win.isOpaque = wantsOpaque
+        win.backgroundColor = wantsOpaque ? .black : .clear
         win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
         win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         win.ignoresMouseEvents = true
@@ -200,6 +229,8 @@ final class MenuBarCover {
             "onOrderIn": noAnim, "onOrderOut": noAnim,
         ]
         base.sublayers?.forEach { $0.removeFromSuperlayer() }
+        // the imageview mode parks an NSImageView here; drop it when switching modes
+        win.contentView?.subviews.forEach { $0.removeFromSuperview() }
 
         let id = Self.displayID(for: screen)
         if let id { wallpaperGen[id, default: 0] += 1 }      // invalidate any in-flight capture
@@ -223,8 +254,40 @@ final class MenuBarCover {
             base.isGeometryFlipped = true     // captured CGImage is top-left origin
             // half-float (HDR) captures need an extended-range layer or they get clamped
             base.wantsExtendedDynamicRangeContent = image.bitsPerComponent > 8
-            base.contents = image
-            base.contentsGravity = .resize    // captured image IS the strip → fill 1:1
+
+            switch Self.renderMode {
+            case "nopromote", "both":
+                // Hand the image to a child layer instead of the root. A layer tree with
+                // sublayers is a poorer candidate for promotion to a dedicated scanout
+                // plane than a single flat surface, which is the thing under test.
+                base.contents = nil
+                base.backgroundColor = NSColor.black.cgColor
+                let child = CALayer()
+                child.actions = base.actions
+                child.frame = base.bounds
+                child.contentsScale = base.contentsScale
+                child.contentsGravity = .resize
+                child.wantsExtendedDynamicRangeContent = image.bitsPerComponent > 8
+                child.contents = image
+                base.addSublayer(child)
+
+            case "imageview":
+                // A different draw path entirely: AppKit renders the image rather than the
+                // layer holding a CGImage as its contents.
+                base.contents = nil
+                base.backgroundColor = NSColor.black.cgColor
+                let iv = NSImageView(frame: win.contentView?.bounds ?? .zero)
+                iv.image = NSImage(cgImage: image, size: .zero)
+                iv.imageScaling = .scaleAxesIndependently
+                iv.autoresizingMask = [.width, .height]
+                iv.wantsLayer = true
+                win.contentView?.subviews.forEach { $0.removeFromSuperview() }
+                win.contentView?.addSubview(iv)
+
+            default:
+                base.contents = image
+                base.contentsGravity = .resize    // captured image IS the strip → fill 1:1
+            }
         }
     }
 
