@@ -35,7 +35,28 @@ enum ScreenCapture {
                 && bounds.contains(window.frame)
         }) else { return nil }
 
-        let filter = SCContentFilter(desktopIndependentWindow: wallpaper)
+        let mode = UserDefaults.standard.string(forKey: "coverCaptureMode") ?? "sck"
+
+        // `composited` fixes the real defect. macOS draws a legibility gradient over the
+        // top of the screen in a Window Server window literally named "underbelly"
+        // (3840x183 at the origin, sitting just above the wallpaper and below app
+        // windows). It is not part of the wallpaper, so capturing the Dock's wallpaper
+        // window — which is what every other mode does — misses it entirely and the cover
+        // comes out far brighter than the desktop it is supposed to disappear into.
+        // Measured on a QD-OLED: the seam step against the desktop just below the bar goes
+        // from +65.06 luma to +12.91 when the gradient is included.
+        //
+        // Compositing the display is what picks the gradient up, so the filter has to keep
+        // desktop-level windows while dropping everything else. Excluding `windowLayer >= 0`
+        // drops app windows (a browser parked at the top would otherwise be captured *into*
+        // the cover), the menu bar, status items, and our own cover, while keeping the
+        // wallpaper, the underbelly, and the Finder desktop.
+        var filter = SCContentFilter(desktopIndependentWindow: wallpaper)
+        if mode == "composited",
+           let display = content.displays.first(where: { $0.displayID == displayID }) {
+            filter = SCContentFilter(display: display,
+                                     excludingWindows: content.windows.filter { $0.windowLayer >= 0 })
+        }
         let config = SCStreamConfiguration()
         config.sourceRect = CGRect(x: 0, y: 0, width: bounds.width, height: barHeight)
         config.width = max(1, Int((bounds.width * scale).rounded()))
@@ -55,7 +76,6 @@ enum ScreenCapture {
         // around it, which shows up as a seam. Plain SDR is the default for that reason.
         // Default is plain SDR: measured on an HDR QD-OLED, the capture already comes back
         // tagged in the display's own space, so no conversion happens and no EDR is requested.
-        let mode = UserDefaults.standard.string(forKey: "coverCaptureMode") ?? "sck"
         switch mode {
         case "hdr":                                                 // 16-bit half-float (forces EDR)
             if #available(macOS 15.0, *) { config.captureDynamicRange = .hdrLocalDisplay }
