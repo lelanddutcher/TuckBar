@@ -545,6 +545,63 @@ func expMulti() {
     restoreVisible()
 }
 
+
+/// Mouse-drag a window by its title bar (a real user move), then toggle auto-hide:
+/// does the window keep its place? (AX-moved windows snapped back; is that an AX artifact?)
+func drag(from a: CGPoint, to b: CGPoint) {
+    CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: a, mouseButton: .left)?.post(tap: .cghidEventTap)
+    spin(0.15)
+    for i in 1...20 {
+        let t = CGFloat(i) / 20
+        let p = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+        CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap)
+        spin(0.02)
+    }
+    spin(0.15)
+    CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: b, mouseButton: .left)?.post(tap: .cghidEventTap)
+    spin(0.6)
+}
+
+func expDrag() {
+    guard AXIsProcessTrusted() else { emit("drag.skip", ["reason": "not AX-trusted"]); return }
+    sh("/usr/bin/open", ["-a", "TextEdit"])
+    _ = osa("tell application \"TextEdit\" to make new document", timeout: 20)
+    spin(2)
+    guard let te = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first else { return }
+    te.activate(options: [])
+    spin(1)
+    var wins: [AXUIElement] = []
+    for _ in 0..<40 { wins = axWindows(axApp(te.processIdentifier)); if !wins.isEmpty { break }; spin(0.25) }
+    guard let w = wins.first else { emit("drag.skip", ["reason": "no window"]); return }
+    var steps: [[String: Any]] = []
+    func note(_ label: String) { steps.append(["step": label, "frame": axFrame(w) ?? [:], "cg": cgBounds(pid: te.processIdentifier)]) }
+    func grab() -> CGPoint? {   // a point on the title bar, right of the traffic lights
+        guard let f = axFrame(w), let x = f["x"], let y = f["y"], let wd = f["w"] else { return nil }
+        return CGPoint(x: x + wd * 0.6, y: y + 12)
+    }
+    restoreVisible()
+    note("start, bar visible")
+    // 1. Drag down-right a bit (a plain user move).
+    if let g = grab() { drag(from: g, to: CGPoint(x: g.x + 120, y: g.y + 80)) }
+    note("after user drag, bar visible")
+    // 2. Toggle auto-hide on: does a user-placed window stay put?
+    _ = seInProcess(true); spin(3); note("auto-hide on")
+    // 3. Drag it up so its top sits in the strip (cursor stops 14pt below the top edge).
+    if let g = grab() { drag(from: g, to: CGPoint(x: g.x, y: 14)) }
+    note("dragged into strip, auto-hide on")
+    // 4. Auto-hide off: pushed down, left under the bar, or reverted?
+    _ = seInProcess(false); spin(0.5); note("auto-hide off +0.5s"); spin(2); note("auto-hide off +2.5s")
+    // 5. And back on.
+    _ = seInProcess(true); spin(2); note("auto-hide on again +2s")
+    // 6. Bar visible: try to drag into the strip (expect a clamp).
+    restoreVisible()
+    if let g = grab() { drag(from: g, to: CGPoint(x: g.x, y: 14)) }
+    note("drag into strip, bar visible")
+    emit("drag", ["steps": steps])
+    restoreVisible()
+    te.terminate()
+}
+
 // MARK: - Entry
 
 let args = CommandLine.arguments
@@ -591,8 +648,9 @@ if which == "own" { expOwnWindow() }
 if which == "ax" { expAXMove() }
 if which == "reveal" { expReveal() }
 if which == "toggle" { expToggleWindows() }
-if which == "all" || which == "toggle2" { expToggle2() }
-if which == "all" || which == "multi" { expMulti() }
+if which == "toggle2" { expToggle2() }
+if which == "multi" { expMulti() }
+if which == "all" || which == "drag" { expDrag() }
 
 restoreVisible()
 emit("end", snapshot("end"))
