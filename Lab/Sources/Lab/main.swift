@@ -8,6 +8,7 @@
 import AppKit
 import ApplicationServices
 import Foundation
+import ScreenCaptureKit
 
 // MARK: - Output
 
@@ -121,6 +122,99 @@ func applyNew(_ hide: Bool) -> [String: Any] { writeDefaults(hide); return seSet
 
 func restoreVisible() {
     writeDefaults(false); seSet(false); spin(2.5)
+}
+
+
+// MARK: - Pixels: capture the top strip and diff it (detects the bar appearing)
+
+var scDisplay: SCDisplay?
+
+func captureStrip(height: Int = 40) -> CGImage? {
+    var result: CGImage?
+    var done = false
+    Task {
+        do {
+            if scDisplay == nil {
+                scDisplay = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true).displays.first
+            }
+            if let d = scDisplay {
+                let cfg = SCStreamConfiguration()
+                cfg.sourceRect = CGRect(x: 0, y: 0, width: d.width, height: height)
+                cfg.width = d.width
+                cfg.height = height
+                cfg.showsCursor = false
+                result = try await SCScreenshotManager.captureImage(contentFilter: SCContentFilter(display: d, excludingWindows: []),
+                                                                    configuration: cfg)
+            }
+        } catch { print("capture error: \(error)") }
+        done = true
+    }
+    let deadline = Date().addingTimeInterval(2)
+    while !done && Date() < deadline { spin(0.002) }
+    return result
+}
+
+func rgba(_ img: CGImage) -> [UInt8] {
+    let w = img.width, h = img.height
+    var buf = [UInt8](repeating: 0, count: w * h * 4)
+    buf.withUnsafeMutableBytes { p in
+        let ctx = CGContext(data: p.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        ctx?.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+    }
+    return buf
+}
+
+/// Mean absolute per-channel difference, 0...255.
+func diff(_ a: [UInt8], _ b: [UInt8]) -> Double {
+    guard a.count == b.count, !a.isEmpty else { return -1 }
+    var sum = 0
+    for i in stride(from: 0, to: a.count, by: 4) {
+        sum += abs(Int(a[i]) - Int(b[i])) + abs(Int(a[i+1]) - Int(b[i+1])) + abs(Int(a[i+2]) - Int(b[i+2]))
+    }
+    return (Double(sum) / Double(a.count / 4 * 3) * 100).rounded() / 100
+}
+
+// MARK: - Pointer
+
+func moveMouse(to p: CGPoint) {
+    CGWarpMouseCursorPosition(p)
+    CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap)
+}
+
+/// Glide to `p` in a few real mouse-moved events (the system's hover tracking wants motion, not a warp).
+func glide(to p: CGPoint, from q: CGPoint) {
+    for i in 1...6 {
+        let t = CGFloat(i) / 6
+        let pt = CGPoint(x: q.x + (p.x - q.x) * t, y: q.y + (p.y - q.y) * t)
+        CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: pt, mouseButton: .left)?.post(tap: .cghidEventTap)
+        spin(0.015)
+    }
+}
+
+/// Sample the strip for `seconds`, return [[ms, diff]] against `base` and the first ms over `threshold`.
+func watchStrip(base: [UInt8], seconds: Double, threshold: Double = 4, from t0: Date) -> (series: [[Double]], first: Double?) {
+    var series: [[Double]] = []
+    var first: Double?
+    let end = Date().addingTimeInterval(seconds)
+    while Date() < end {
+        guard let img = captureStrip() else { spin(0.02); continue }
+        let ms = (Date().timeIntervalSince(t0) * 1000).rounded()
+        let d = diff(base, rgba(img))
+        series.append([ms, d])
+        if first == nil && d > threshold { first = ms }
+    }
+    return (series, first)
+}
+
+// In-process System Events (what the app does), compiled once.
+let seOn = NSAppleScript(source: "tell application \"System Events\" to set autohide menu bar of dock preferences to true")!
+let seOff = NSAppleScript(source: "tell application \"System Events\" to set autohide menu bar of dock preferences to false")!
+func seInProcess(_ hide: Bool) -> [String: Any] {
+    var err: NSDictionary?
+    let t0 = Date()
+    (hide ? seOn : seOff).executeAndReturnError(&err)
+    return ["ms": (Date().timeIntervalSince(t0) * 1000).rounded(), "error": err.map { "\($0)" } ?? ""]
 }
 
 // MARK: - Experiments
@@ -257,6 +351,88 @@ func expOwnWindow() {
     emit("own.window", ["topInset": r(screen.frame.maxY - screen.visibleFrame.maxY), "results": out])
 }
 
+
+/// How fast does the bar appear: native hover reveal vs TuckBar flipping auto-hide off?
+func expReveal() {
+    guard let screen = NSScreen.screens.first else { return }
+    let f = screen.frame
+    let center = CGPoint(x: f.midX, y: f.midY)          // CG global coords: top-left origin
+    let top = CGPoint(x: f.midX, y: 0)
+    guard captureStrip() != nil else { emit("reveal.skip", ["reason": "no screen capture"]); return }
+    // Warm up the in-process AppleScript (first call compiles/launches System Events).
+    _ = seInProcess(false); spin(1.5)
+
+    for round in 1...3 {
+        // Native: auto-hide on, pointer away, then glide to the top edge.
+        _ = applyNew(true); moveMouse(to: center); spin(2.5)
+        guard let baseImg = captureStrip() else { continue }
+        let base = rgba(baseImg)
+        glide(to: top, from: center)
+        let t0 = Date()
+        let native = watchStrip(base: base, seconds: 3, from: t0)
+        let chromeAtEnd = topChromeWindows()
+        moveMouse(to: center); spin(2.5)
+
+        // TuckBar-driven: pointer away, call System Events (in-process) to turn auto-hide off.
+        guard let baseImg2 = captureStrip() else { continue }
+        let base2 = rgba(baseImg2)
+        let t1 = Date()
+        let call = seInProcess(false)
+        let driven = watchStrip(base: base2, seconds: 2, from: t1)
+        _ = seInProcess(true); spin(1.5)
+
+        // TuckBar-driven via osascript subprocess, for comparison.
+        guard let baseImg3 = captureStrip() else { continue }
+        let base3 = rgba(baseImg3)
+        let t2 = Date()
+        let callOsa = seSet(false)
+        let callOsaMs = (Date().timeIntervalSince(t2) * 1000).rounded()
+        let drivenOsa = watchStrip(base: base3, seconds: 2, from: t2)
+        _ = seInProcess(true); spin(1.5)
+
+        emit("reveal", ["round": round,
+                        "nativeFirstMs": native.first ?? -1, "native": native.series,
+                        "nativeChromeAtEnd": chromeAtEnd,
+                        "seCall": call, "drivenFirstMs": driven.first ?? -1, "driven": driven.series,
+                        "osaCallMs": callOsaMs, "osaCode": Int(callOsa.code),
+                        "drivenOsaFirstMs": drivenOsa.first ?? -1])
+    }
+    restoreVisible()
+}
+
+/// When auto-hide turns off, are windows sitting in the strip pushed down (or left under the bar)?
+func expToggleWindows() {
+    guard AXIsProcessTrusted() else { emit("toggle.skip", ["reason": "not AX-trusted"]); return }
+    sh("/usr/bin/open", ["-a", "TextEdit"])
+    _ = osa("tell application \"TextEdit\" to make new document", timeout: 20)
+    spin(2)
+    guard let te = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first else {
+        emit("toggle.skip", ["reason": "no TextEdit"]); return
+    }
+    let app = axApp(te.processIdentifier)
+    var wins: [AXUIElement] = []
+    for _ in 0..<40 { wins = axWindows(app); if !wins.isEmpty { break }; spin(0.25) }
+    guard let w = wins.first else { emit("toggle.skip", ["reason": "no AX window"]); return }
+    let screenH = NSScreen.screens.first.map { $0.frame.height } ?? 768
+
+    _ = applyNew(true); spin(3)
+    _ = axSet(w, origin: .zero, size: CGSize(width: 640, height: screenH)); spin(1)
+    var samples: [[String: Any]] = [["label": "autohide-on, placed", "frame": axFrame(w) ?? [:]]]
+    _ = seInProcess(false)
+    for at in [0.3, 1.0, 3.0] { spin(at == 0.3 ? 0.3 : at == 1.0 ? 0.7 : 2.0)
+        samples.append(["label": "off+\(at)s", "frame": axFrame(w) ?? [:], "topInset": snapshot("x")["topInset"] ?? -1]) }
+    _ = seInProcess(true)
+    for at in [0.3, 1.0, 3.0] { spin(at == 0.3 ? 0.3 : at == 1.0 ? 0.7 : 2.0)
+        samples.append(["label": "on-again+\(at)s", "frame": axFrame(w) ?? [:], "topInset": snapshot("x")["topInset"] ?? -1]) }
+    // Does the app re-constrain the window when it is next activated / resized slightly?
+    te.activate(options: [])
+    spin(1)
+    samples.append(["label": "after activate", "frame": axFrame(w) ?? [:]])
+    emit("toggle.windows", ["samples": samples])
+    restoreVisible()
+    te.terminate()
+}
+
 // MARK: - Entry
 
 let args = CommandLine.arguments
@@ -285,6 +461,8 @@ if which == "all" || which == "env" { expEnvironment() }
 if which == "all" || which == "order" { expApplyOrder() }
 if which == "all" || which == "own" { expOwnWindow() }
 if which == "all" || which == "ax" { expAXMove() }
+if which == "all" || which == "reveal" { expReveal() }
+if which == "all" || which == "toggle" { expToggleWindows() }
 
 restoreVisible()
 emit("end", snapshot("end"))
