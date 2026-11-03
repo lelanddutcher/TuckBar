@@ -5,6 +5,11 @@ import AppKit
 /// or a **hollow outline when it's tucked away** — the menu-bar-size echo of the dashed-T
 /// app icon (dashes don't resolve this small, so tucked reads as an outline). A slash
 /// marks the disabled state.
+///
+/// `@MainActor`: the cached `NSImage`s are UI objects, only used from `AppModel` (itself
+/// main-actor). Required for Swift 6 strict concurrency with SDKs where `NSImage`
+/// isn't `Sendable` (e.g. Xcode 16 / macOS 15 SDK).
+@MainActor
 enum MenuBarGlyph {
     static let tucked = make(filled: false, slashed: false)
     static let untucked = make(filled: true, slashed: false)

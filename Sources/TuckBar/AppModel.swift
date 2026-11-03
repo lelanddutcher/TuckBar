@@ -53,6 +53,11 @@ final class AppModel: ObservableObject {
             if isProtecting { refreshCovers() }
         }
     }
+    /// Use macOS's own auto-hide even with several displays, so windows can grow into the
+    /// menu-bar strip on the tagged display. Trade-off: the bar hides on every display.
+    @Published var useFullScreen: Bool {
+        didSet { guard ready else { return }; defaults.set(useFullScreen, forKey: Keys.useFullScreen); evaluate() }
+    }
     @Published var hideDockWhenProtected: Bool {
         didSet { guard ready else { return }; defaults.set(hideDockWhenProtected, forKey: Keys.hideDock); evaluate() }
     }
@@ -93,6 +98,7 @@ final class AppModel: ObservableObject {
         static let coverOpacity = "coverOpacity"
         static let coverWallpaper = "coverUsesWallpaper"
         static let hideDock = "protectDock"
+        static let useFullScreen = "useFullScreenWhenTucked"
         static let snoozeDuration = "snoozeDurationMinutes"
         static let displayNames = "displayNames"
         /// Marks that *we* enabled the global auto-hide, so a crash/force-quit that skips
@@ -108,6 +114,7 @@ final class AppModel: ObservableObject {
         coverOpacity = defaults.object(forKey: Keys.coverOpacity) as? Double ?? 1.0
         coverUsesWallpaper = defaults.object(forKey: Keys.coverWallpaper) as? Bool ?? true
         hideDockWhenProtected = defaults.object(forKey: Keys.hideDock) as? Bool ?? false
+        useFullScreen = defaults.object(forKey: Keys.useFullScreen) as? Bool ?? false
         snoozeDurationMinutes = defaults.object(forKey: Keys.snoozeDuration) as? Int ?? 10
         displayNames = defaults.dictionary(forKey: Keys.displayNames) as? [String: String] ?? [:]
         launchAtLogin = LoginItemManager.isEnabled
@@ -214,15 +221,22 @@ final class AppModel: ObservableObject {
     var taggedDisplayNames: [String] {
         protectedDisplayIDs.map { displayNames[$0] ?? "a tagged display" }.sorted()
     }
-    /// True when protecting but the protected display is the only one connected,
-    /// so we use the native auto-hide instead of an overlay.
-    var usingAutohideFallback: Bool { isProtecting && displays.count <= 1 }
+    /// The mode the engine should be in for the current state.
+    var tuckMode: TuckMode {
+        TuckPlanner.mode(enabled: isEnabled, snoozing: isSnoozing,
+                         taggedDisplaysPresent: protectedDisplaysPresent.count,
+                         displayCount: displays.count, useFullScreen: useFullScreen)
+    }
+    /// True when protecting with macOS's native auto-hide instead of an overlay: the tagged
+    /// display is the only one connected, or the user chose "Use the full screen".
+    var usingAutohideFallback: Bool { isProtecting && tuckMode == .nativeAutohide }
 
     private func evaluate() {
         guard ready else { return }
 
         let present = protectedDisplaysPresent
-        let active = isEnabled && !present.isEmpty && !isSnoozing
+        let mode = tuckMode
+        let active = mode != .off
         isProtecting = active
 
         guard active else {
@@ -235,8 +249,9 @@ final class AppModel: ObservableObject {
             return
         }
 
-        if displays.count <= 1 {
-            // Only the protected display is connected → native auto-hide fallback.
+        if mode == .nativeAutohide {
+            // Single display, or "Use the full screen": native auto-hide, so windows can use
+            // the strip (global: no per-display switch exists).
             stopRevealTracking()
             cover.removeAll()
             setGlobalAutohide(true)
@@ -258,7 +273,7 @@ final class AppModel: ObservableObject {
     }
 
     private func refreshCovers() {
-        guard isProtecting, displays.count > 1 else { return }
+        guard isProtecting, tuckMode == .cover else { return }
         cover.update(displayIDs: Set(protectedDisplaysPresent.map(\.displayID)), opacity: coverOpacity, usesWallpaper: coverUsesWallpaper)
         updateRevealTracking()
         updatePermissionState()
@@ -266,7 +281,7 @@ final class AppModel: ObservableObject {
 
     /// Track whether wallpaper capture needs Screen Recording permission, requesting it once.
     private func updatePermissionState() {
-        let usingCapture = isProtecting && coverUsesWallpaper && displays.count > 1 && !protectedDisplaysPresent.isEmpty
+        let usingCapture = isProtecting && coverUsesWallpaper && tuckMode == .cover
         if usingCapture && !ScreenCapture.hasPermission() {
             needsScreenRecording = true
             if !requestedScreenRecording {
