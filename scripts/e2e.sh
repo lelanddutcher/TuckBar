@@ -52,8 +52,12 @@ defaults write "$DOMAIN" protectedDisplayIDs -array "$VD_UUID"
 defaults write "$DOMAIN" coverUsesWallpaper -bool false
 start_app cover
 L=$(lab inspect cover)
+check "two displays present, one of them the tagged virtual display" \
+  "len(d['screens'])==2 and any(s['uuid']=='$VD_UUID' for s in d['screens'])" "$L"
 check "cover: a TuckBar window covers the tagged display's strip" \
   "any(w['onscreen'] and w['layer']>=25 and w['bounds']['h']<=60 and any(abs(w['bounds']['x']-s['frame']['x'])<1 and abs(w['bounds']['w']-s['frame']['w'])<1 for s in d['screens'] if s['uuid']=='$VD_UUID') for w in d['tuckbar'])" "$L"
+check "cover: the untagged display has no cover" \
+  "not any(w['onscreen'] and w['layer']>=25 and w['bounds']['h']<=60 and any(abs(w['bounds']['x']-s['frame']['x'])<1 for s in d['screens'] if s['uuid']!='$VD_UUID') for w in d['tuckbar'])" "$L"
 check "cover: native auto-hide stays off" "d['autohide']['systemEvents']=='false'" "$L"
 check "cover: every display still reserves its bar" "all(s['topInset']>1 for s in d['screens'])" "$L"
 stop_app
@@ -64,7 +68,7 @@ start_app fullscreen
 L=$(lab inspect fullscreen)
 check "full screen: native auto-hide is on" "d['autohide']['systemEvents']=='true'" "$L"
 check "full screen: no cover window" "not any(w['onscreen'] and w['layer']>=25 for w in d['tuckbar'])" "$L"
-check "full screen: the strip is free on the tagged display" "all(s['topInset']<=1 for s in d['screens'] if s['uuid']=='$VD_UUID')" "$L"
+check "full screen: the strip is free on the tagged display" "any(s['uuid']=='$VD_UUID' and s['topInset']<=1 for s in d['screens'])" "$L"
 stop_app
 
 # 4. Quitting (SIGTERM, as stop_app sends) restored the bar.
