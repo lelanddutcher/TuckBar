@@ -610,6 +610,41 @@ func expDrag() {
     te.terminate()
 }
 
+
+/// A window AppKit itself placed in the strip (auto-hide on): what happens to it when auto-hide
+/// turns off? Pushed below the bar, left under it, or something else? (Decides whether TuckBar may
+/// flip auto-hide at runtime, e.g. per pointer position.)
+func expOwnStrip() {
+    guard let screen = NSScreen.screens.first else { return }
+    restoreVisible()
+    _ = applyNew(true); spin(3)
+    let inStrip = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200),
+                           styleMask: [.titled, .resizable, .closable], backing: .buffered, defer: false)
+    inStrip.title = "InStrip"
+    let below = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200),
+                         styleMask: [.titled, .resizable, .closable], backing: .buffered, defer: false)
+    below.title = "Below"
+    inStrip.orderFrontRegardless(); below.orderFrontRegardless()
+    let vf = screen.visibleFrame        // with auto-hide on, this reaches the top edge
+    inStrip.setFrame(NSRect(x: vf.minX + 20, y: vf.maxY - 400, width: 500, height: 400), display: true)
+    below.setFrame(NSRect(x: vf.minX + 560, y: vf.maxY - 500, width: 400, height: 300), display: true)
+    spin(1)
+    var steps: [[String: Any]] = []
+    func note(_ label: String) {
+        steps.append(["step": label, "topInset": r(screen.frame.maxY - screen.visibleFrame.maxY),
+                      "inStripTopGap": r(screen.frame.maxY - inStrip.frame.maxY), "inStrip": rect(inStrip.frame),
+                      "belowTopGap": r(screen.frame.maxY - below.frame.maxY)])
+    }
+    note("placed, auto-hide on")
+    _ = seInProcess(false); spin(0.5); note("auto-hide off +0.5s"); spin(2.5); note("auto-hide off +3s")
+    _ = seInProcess(true); spin(2.5); note("auto-hide on again")
+    // Repeat a few quick flips (as a pointer-driven mode would) and check for drift.
+    for i in 1...3 { _ = seInProcess(false); spin(1.2); _ = seInProcess(true); spin(1.2); note("flip \(i)") }
+    emit("ownstrip", ["steps": steps])
+    inStrip.orderOut(nil); below.orderOut(nil)
+    restoreVisible()
+}
+
 // MARK: - Entry
 
 let args = CommandLine.arguments
@@ -658,7 +693,8 @@ if which == "reveal" { expReveal() }
 if which == "toggle" { expToggleWindows() }
 if which == "toggle2" { expToggle2() }
 if which == "multi" { expMulti() }
-if which == "all" || which == "drag" { expDrag() }
+if which == "drag" { expDrag() }
+if which == "all" || which == "ownstrip" { expOwnStrip() }
 
 restoreVisible()
 emit("end", snapshot("end"))
