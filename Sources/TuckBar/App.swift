@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Route it through a normal terminate so the bar and Dock are restored.
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-        source.setEventHandler { NSApp.terminate(nil) }
+        source.setEventHandler { MainActor.assumeIsolated { NSApp.terminate(nil) } }   // handler runs on .main
         source.resume()
         sigterm = source
     }
