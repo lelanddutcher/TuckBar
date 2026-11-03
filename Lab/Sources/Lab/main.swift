@@ -9,6 +9,7 @@ import AppKit
 import ApplicationServices
 import Foundation
 import ScreenCaptureKit
+import VDisplay
 
 // MARK: - Output
 
@@ -173,6 +174,12 @@ func diff(_ a: [UInt8], _ b: [UInt8]) -> Double {
         sum += abs(Int(a[i]) - Int(b[i])) + abs(Int(a[i+1]) - Int(b[i+1])) + abs(Int(a[i+2]) - Int(b[i+2]))
     }
     return (Double(sum) / Double(a.count / 4 * 3) * 100).rounded() / 100
+}
+
+/// First ms at which the diff reaches 95% of its final value (the slide-in has finished).
+func fullAt(_ series: [[Double]]) -> Double {
+    guard let last = series.last?[1], last > 0 else { return -1 }
+    return series.first { $0[1] >= last * 0.95 }?[0] ?? -1
 }
 
 // MARK: - Pointer
@@ -391,9 +398,9 @@ func expReveal() {
         _ = seInProcess(true); spin(1.5)
 
         emit("reveal", ["round": round,
-                        "nativeFirstMs": native.first ?? -1, "native": native.series,
+                        "nativeFirstMs": native.first ?? -1, "nativeFullMs": fullAt(native.series),
                         "nativeChromeAtEnd": chromeAtEnd,
-                        "seCall": call, "drivenFirstMs": driven.first ?? -1, "driven": driven.series,
+                        "seCall": call, "drivenFirstMs": driven.first ?? -1, "drivenFullMs": fullAt(driven.series),
                         "osaCallMs": callOsaMs, "osaCode": Int(callOsa.code),
                         "drivenOsaFirstMs": drivenOsa.first ?? -1])
     }
@@ -433,6 +440,111 @@ func expToggleWindows() {
     te.terminate()
 }
 
+
+func uuidString(_ id: CGDirectDisplayID) -> String {
+    guard let u = CGDisplayCreateUUIDFromDisplayID(id) else { return "" }
+    return (CFUUIDCreateString(nil, u.takeRetainedValue()) as String?) ?? ""
+}
+
+func screensWithUUID() -> [[String: Any]] {
+    screens().map { var d = $0; d["uuid"] = uuidString(CGDirectDisplayID(d["id"] as? Int ?? 0)); return d }
+}
+
+/// Windows owned by a process name (e.g. TuckBar's cover windows).
+func windowsOwned(by owner: String) -> [[String: Any]] {
+    guard let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else { return [] }
+    return list.compactMap { w in
+        guard (w[kCGWindowOwnerName as String] as? String) == owner,
+              let b = w[kCGWindowBounds as String] as? [String: Any],
+              let f = CGRect(dictionaryRepresentation: b as CFDictionary) else { return nil }
+        return ["layer": w[kCGWindowLayer as String] as? Int ?? 0, "bounds": rect(f),
+                "onscreen": w[kCGWindowIsOnscreen as String] as? Bool ?? false,
+                "alpha": w[kCGWindowAlpha as String] as? Double ?? -1]
+    }
+}
+
+func makeVirtualDisplay(_ w: UInt32 = 1440, _ h: UInt32 = 900) -> CGDirectDisplayID? {
+    let id = VDCreate(w, h, "TuckBar Lab Display")
+    if id == 0 { emit("vdisplay.fail", ["error": String(cString: VDLastError())]); return nil }
+    for _ in 0..<40 where NSScreen.screens.count < 2 { spin(0.25) }
+    emit("vdisplay", ["id": Int(id), "uuid": uuidString(id), "screens": screensWithUUID()])
+    return id
+}
+
+/// Window lifecycle around auto-hide: are strip windows disturbed by the native reveal, and why
+/// did turning auto-hide off throw a window back to its original frame?
+func expToggle2() {
+    guard AXIsProcessTrusted() else { emit("toggle2.skip", ["reason": "not AX-trusted"]); return }
+    let exe = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.path
+    let helper = Process()
+    helper.executableURL = URL(fileURLWithPath: exe)
+    helper.arguments = ["window", "LabTarget"]
+    try? helper.run()
+    defer { helper.terminate() }
+    sh("/usr/bin/open", ["-a", "TextEdit"])
+    _ = osa("tell application \"TextEdit\" to make new document", timeout: 20)
+    spin(2)
+    var targets: [(String, pid_t)] = [("helper", helper.processIdentifier)]
+    if let te = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
+        targets.append(("TextEdit", te.processIdentifier))
+    }
+    guard let screen = NSScreen.screens.first else { return }
+    let center = CGPoint(x: screen.frame.midX, y: screen.frame.midY)
+    for (name, pid) in targets {
+        restoreVisible()
+        var wins: [AXUIElement] = []
+        for _ in 0..<40 { wins = axWindows(axApp(pid)); if !wins.isEmpty { break }; spin(0.25) }
+        guard let w = wins.first else { emit("toggle2", ["target": name, "error": "no window"]); continue }
+        var steps: [[String: Any]] = []
+        func note(_ label: String) { steps.append(["step": label, "frame": axFrame(w) ?? [:]]) }
+        _ = axSet(w, origin: CGPoint(x: 300, y: 200), size: CGSize(width: 500, height: 400)); spin(0.7); note("user frame, bar visible")
+        _ = applyNew(true); spin(3); note("auto-hide on")
+        _ = axSet(w, origin: .zero, size: CGSize(width: 640, height: screen.frame.height)); spin(1); note("moved into strip")
+        moveMouse(to: center); glide(to: CGPoint(x: center.x, y: 0), from: center); spin(1.5); note("native reveal (pointer at top)")
+        glide(to: center, from: CGPoint(x: center.x, y: 0)); spin(2); note("native re-hide")
+        // A second placement: strip, but not full height (does the revert depend on overlapping the bar?).
+        _ = axSet(w, origin: CGPoint(x: 100, y: 5), size: CGSize(width: 500, height: 300)); spin(1); note("small, 5pt into strip")
+        _ = seInProcess(false); spin(0.4); note("auto-hide off +0.4s"); spin(2); note("auto-hide off +2.4s")
+        _ = seInProcess(true); spin(2); note("auto-hide on again")
+        _ = axSet(w, origin: CGPoint(x: 100, y: 200), size: CGSize(width: 500, height: 300)); spin(1); note("below strip")
+        _ = seInProcess(false); spin(2); note("auto-hide off, window was below strip")
+        emit("toggle2", ["target": name, "steps": steps])
+    }
+    restoreVisible()
+    NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first?.terminate()
+}
+
+/// Two displays (one virtual): is auto-hide still global, and is the strip clamp per display?
+func expMulti() {
+    guard let vd = makeVirtualDisplay() else { return }
+    let vdBounds = CGDisplayBounds(vd)
+    restoreVisible()
+    emit("multi.off", ["screens": screensWithUUID(), "chrome": topChromeWindows()])
+    _ = applyNew(true); spin(3)
+    emit("multi.on", ["screens": screensWithUUID(), "chrome": topChromeWindows()])
+    restoreVisible()
+    // AX: move the helper window to the top of the virtual display, bar visible and hidden.
+    guard AXIsProcessTrusted() else { return }
+    let exe = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.path
+    let helper = Process()
+    helper.executableURL = URL(fileURLWithPath: exe)
+    helper.arguments = ["window", "LabTarget"]
+    try? helper.run()
+    defer { helper.terminate() }
+    var wins: [AXUIElement] = []
+    for _ in 0..<40 { wins = axWindows(axApp(helper.processIdentifier)); if !wins.isEmpty { break }; spin(0.25) }
+    guard let w = wins.first else { return }
+    var out: [[String: Any]] = []
+    for hidden in [false, true] {
+        if hidden { _ = applyNew(true); spin(3) } else { restoreVisible() }
+        _ = axSet(w, origin: vdBounds.origin, size: CGSize(width: 600, height: vdBounds.height)); spin(1)
+        out.append(["autohide": hidden, "asked": rect(CGRect(origin: vdBounds.origin, size: CGSize(width: 600, height: vdBounds.height))),
+                    "after": axFrame(w) ?? [:]])
+    }
+    emit("multi.ax", ["vdBounds": rect(vdBounds), "results": out])
+    restoreVisible()
+}
+
 // MARK: - Entry
 
 let args = CommandLine.arguments
@@ -454,15 +566,33 @@ app.finishLaunching()
 spin(0.5)
 
 let which = args.count >= 2 ? args[1] : "all"
+
+// Utility commands for the end-to-end app job.
+if which == "vhold" {
+    // Keep a virtual display alive until killed.
+    let w = args.count >= 3 ? UInt32(args[2]) ?? 1440 : 1440
+    let h = args.count >= 4 ? UInt32(args[3]) ?? 900 : 900
+    guard makeVirtualDisplay(w, h) != nil else { exit(1) }
+    while true { spin(1) }
+}
+if which == "screens" { emit("screens", screensWithUUID()); exit(0) }
+if which == "inspect" {
+    let label = args.count >= 3 ? args[2] : "inspect"
+    emit("inspect", ["label": label, "screens": screensWithUUID(), "autohide": autohideState(),
+                     "chrome": topChromeWindows(), "tuckbar": windowsOwned(by: "TuckBar")])
+    exit(0)
+}
 let found = autohideState()
 emit("begin", ["which": which, "found": found])
 
 if which == "all" || which == "env" { expEnvironment() }
-if which == "all" || which == "order" { expApplyOrder() }
-if which == "all" || which == "own" { expOwnWindow() }
-if which == "all" || which == "ax" { expAXMove() }
-if which == "all" || which == "reveal" { expReveal() }
-if which == "all" || which == "toggle" { expToggleWindows() }
+if which == "order" { expApplyOrder() }
+if which == "own" { expOwnWindow() }
+if which == "ax" { expAXMove() }
+if which == "reveal" { expReveal() }
+if which == "toggle" { expToggleWindows() }
+if which == "all" || which == "toggle2" { expToggle2() }
+if which == "all" || which == "multi" { expMulti() }
 
 restoreVisible()
 emit("end", snapshot("end"))

@@ -7,7 +7,8 @@ let package = Package(
     name: "Lab",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "Lab", path: "Sources/Lab")
+        .target(name: "VDisplay", path: "Sources/VDisplay"),
+        .executableTarget(name: "Lab", dependencies: ["VDisplay"], path: "Sources/Lab")
     ],
     swiftLanguageModes: [.v5]
 )

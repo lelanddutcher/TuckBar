@@ -1,0 +1,41 @@
+name: E2E
+
+# End-to-end checks of the real TuckBar app on a GitHub-hosted macOS GUI session, with a
+# virtual second display (Lab's CGVirtualDisplay helper) so the multi-display paths run.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-26, xcode-27]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app and lab
+        run: |
+          ./scripts/build-app.sh
+          swift build -c release --package-path Lab
+
+      - name: Run e2e
+        run: ./scripts/e2e.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ matrix.runner }}
+          path: e2e-out
+          retention-days: 7

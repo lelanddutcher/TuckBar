@@ -192,12 +192,24 @@ struct MenuContent: View {
             }
 
             if model.usingAutohideFallback {
-                Text("Only one display connected, so it uses native auto-hide. The slider applies with 2+ displays.")
+                Text(model.useFullScreen && model.displays.count > 1
+                     ? "Using native auto-hide so windows can use the space. The slider applies when “Use the full screen” is off."
+                     : "Only one display connected, so it uses native auto-hide. The slider applies with 2+ displays.")
                     .font(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Divider()
+
+            Toggle(isOn: $model.useFullScreen) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Use the full screen").font(.callout)
+                    Text("Windows can grow into the menu-bar space. macOS hides the bar on every display to allow it.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch).controlSize(.small)
 
             HStack {
                 Label("Also hide the Dock", systemImage: "dock.rectangle").font(.callout)
