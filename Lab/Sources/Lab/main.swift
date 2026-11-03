@@ -549,6 +549,8 @@ func expMulti() {
 /// Mouse-drag a window by its title bar (a real user move), then toggle auto-hide:
 /// does the window keep its place? (AX-moved windows snapped back; is that an AX artifact?)
 func drag(from a: CGPoint, to b: CGPoint) {
+    dragTarget?.activate(options: [])
+    spin(0.5)
     CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: a, mouseButton: .left)?.post(tap: .cghidEventTap)
     spin(0.15)
     for i in 1...20 {
@@ -562,19 +564,23 @@ func drag(from a: CGPoint, to b: CGPoint) {
     spin(0.6)
 }
 
+var dragTarget: NSRunningApplication?
+
 func expDrag() {
     guard AXIsProcessTrusted() else { emit("drag.skip", ["reason": "not AX-trusted"]); return }
     sh("/usr/bin/open", ["-a", "TextEdit"])
     _ = osa("tell application \"TextEdit\" to make new document", timeout: 20)
     spin(2)
     guard let te = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first else { return }
+    dragTarget = te
     te.activate(options: [])
     spin(1)
     var wins: [AXUIElement] = []
     for _ in 0..<40 { wins = axWindows(axApp(te.processIdentifier)); if !wins.isEmpty { break }; spin(0.25) }
     guard let w = wins.first else { emit("drag.skip", ["reason": "no window"]); return }
     var steps: [[String: Any]] = []
-    func note(_ label: String) { steps.append(["step": label, "frame": axFrame(w) ?? [:], "cg": cgBounds(pid: te.processIdentifier)]) }
+    func note(_ label: String) { steps.append(["step": label, "frame": axFrame(w) ?? [:],
+                                               "front": NSWorkspace.shared.frontmostApplication?.localizedName ?? "?"]) }
     func grab() -> CGPoint? {   // a point on the title bar, right of the traffic lights
         guard let f = axFrame(w), let x = f["x"], let y = f["y"], let wd = f["w"] else { return nil }
         return CGPoint(x: x + wd * 0.6, y: y + 12)
@@ -587,6 +593,8 @@ func expDrag() {
     // 2. Toggle auto-hide on: does a user-placed window stay put?
     _ = seInProcess(true); spin(3); note("auto-hide on")
     // 3. Drag it up so its top sits in the strip (cursor stops 14pt below the top edge).
+    if let g = grab() { drag(from: g, to: CGPoint(x: g.x, y: 60)) }
+    note("dragged near top, auto-hide on")
     if let g = grab() { drag(from: g, to: CGPoint(x: g.x, y: 14)) }
     note("dragged into strip, auto-hide on")
     // 4. Auto-hide off: pushed down, left under the bar, or reverted?
