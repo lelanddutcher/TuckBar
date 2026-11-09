@@ -5,12 +5,38 @@ import ScreenCaptureKit
 /// pixel-perfect. (A copy rendered from the wallpaper *file* can't match — macOS
 /// composites a scaled/zoomed version, which is the source of the alignment drift.)
 ///
-/// We capture the Dock's live per-display "Wallpaper" window via **ScreenCaptureKit**
+/// We capture the desktop behind the menu bar via **ScreenCaptureKit**
 /// (`SCScreenshotManager`, macOS 14+), clipped to the menu-bar strip — a stable,
 /// supported API (no obsoleted `CGWindowListCreateImageFromArray` shim). Requires
 /// Screen Recording permission; without it, callers fall back to a black cover.
 enum ScreenCapture {
     static func hasPermission() -> Bool { CGPreflightScreenCaptureAccess() }
+
+    /// `composited` (the default) captures the desktop as macOS draws it; the other modes
+    /// capture the bare wallpaper window and are kept for diagnosis:
+    ///   defaults write com.lelanddutcher.TuckBar coverCaptureMode -string sck
+    static var captureMode: String {
+        UserDefaults.standard.string(forKey: "coverCaptureMode") ?? "composited"
+    }
+
+    /// The per-display wallpaper window. The Dock drew it up to macOS 26; on macOS 27
+    /// WindowManager does. Match on what both share (the title, a below-desktop layer,
+    /// full coverage of the display) rather than on the owner, so the next move does not
+    /// silently turn the cover black again.
+    static func wallpaperWindow(in content: SCShareableContent, bounds: CGRect) -> SCWindow? {
+        content.windows.first { window in
+            (window.title?.hasPrefix("Wallpaper") ?? false)
+                && window.windowLayer < 0
+                && bounds.contains(window.frame)
+        }
+    }
+
+    /// The display as composited, minus every window at layer 0 or above: app windows,
+    /// the menu bar, status items, MenuBarAgent's strip and our own cover. What is left is
+    /// the wallpaper, the "underbelly" gradient over it, and the Finder desktop.
+    static func desktopFilter(display: SCDisplay, content: SCShareableContent) -> SCContentFilter {
+        SCContentFilter(display: display, excludingWindows: content.windows.filter { $0.windowLayer >= 0 })
+    }
 
     /// Trigger the system permission prompt (gated to wallpaper mode by callers).
     static func requestPermission() {
@@ -28,14 +54,38 @@ enum ScreenCapture {
             false, onScreenWindowsOnly: true
         ) else { return nil }
 
-        // The Dock draws one "Wallpaper" window per display; pick the one covering this one.
-        guard let wallpaper = content.windows.first(where: { window in
-            (window.title?.hasPrefix("Wallpaper") ?? false)
-                && window.owningApplication?.bundleIdentifier == "com.apple.dock"
-                && bounds.contains(window.frame)
-        }) else { return nil }
+        let mode = captureMode
+        let display = content.displays.first(where: { $0.displayID == displayID })
+        let wallpaper = wallpaperWindow(in: content, bounds: bounds)
 
-        let filter = SCContentFilter(desktopIndependentWindow: wallpaper)
+        // `composited` fixes the real defect. macOS draws a legibility gradient over the
+        // top of the screen in a Window Server window literally named "underbelly"
+        // (3840x183 at the origin, sitting just above the wallpaper and below app
+        // windows). It is not part of the wallpaper, so capturing the Dock's wallpaper
+        // window — which is what every other mode does — misses it entirely and the cover
+        // comes out far brighter than the desktop it is supposed to disappear into.
+        // Measured on a QD-OLED: the seam step against the desktop just below the bar goes
+        // from +65.06 luma to -1.71 when the gradient is included.
+        //
+        // Compositing the display is what picks the gradient up, so the filter has to keep
+        // desktop-level windows while dropping everything else. Excluding `windowLayer >= 0`
+        // drops app windows (a browser parked at the top would otherwise be captured *into*
+        // the cover), the menu bar, status items, and our own cover, while keeping the
+        // wallpaper, the underbelly, and the Finder desktop.
+        //
+        // It is also the only path that works on macOS 27, where the wallpaper window moved
+        // from the Dock to WindowManager: it needs the display, not a particular window.
+        // The wallpaper-window path is kept as the fallback and for the diagnostic modes.
+        let filter: SCContentFilter
+        if mode == "composited", let display {
+            filter = desktopFilter(display: display, content: content)
+        } else if let wallpaper {
+            filter = SCContentFilter(desktopIndependentWindow: wallpaper)
+        } else if let display {
+            filter = desktopFilter(display: display, content: content)
+        } else {
+            return nil
+        }
         let config = SCStreamConfiguration()
         config.sourceRect = CGRect(x: 0, y: 0, width: bounds.width, height: barHeight)
         config.width = max(1, Int((bounds.width * scale).rounded()))
@@ -55,7 +105,6 @@ enum ScreenCapture {
         // around it, which shows up as a seam. Plain SDR is the default for that reason.
         // Default is plain SDR: measured on an HDR QD-OLED, the capture already comes back
         // tagged in the display's own space, so no conversion happens and no EDR is requested.
-        let mode = UserDefaults.standard.string(forKey: "coverCaptureMode") ?? "sck"
         switch mode {
         case "hdr":                                                 // 16-bit half-float (forces EDR)
             if #available(macOS 15.0, *) { config.captureDynamicRange = .hdrLocalDisplay }
@@ -109,11 +158,16 @@ enum ScreenCapture {
         guard let content = try? await SCShareableContent.excludingDesktopWindows(
             false, onScreenWindowsOnly: true
         ) else { return nil }
-        guard let wallpaper = content.windows.first(where: { window in
-            (window.title?.hasPrefix("Wallpaper") ?? false)
-                && window.owningApplication?.bundleIdentifier == "com.apple.dock"
-                && bounds.contains(window.frame)
-        }) else { return nil }
+        // Sample the same source the cover is drawn from, so a change in either the
+        // wallpaper or the gradient over it is noticed.
+        let filter: SCContentFilter
+        if let wallpaper = wallpaperWindow(in: content, bounds: bounds), captureMode != "composited" {
+            filter = SCContentFilter(desktopIndependentWindow: wallpaper)
+        } else if let display = content.displays.first(where: { $0.displayID == displayID }) {
+            filter = desktopFilter(display: display, content: content)
+        } else {
+            return nil
+        }
 
         let config = SCStreamConfiguration()
         config.sourceRect = CGRect(x: 0, y: 0, width: bounds.width, height: barHeight)
@@ -122,7 +176,6 @@ enum ScreenCapture {
         config.showsCursor = false
         config.ignoreShadowsSingleWindow = true
 
-        let filter = SCContentFilter(desktopIndependentWindow: wallpaper)
         guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
         else { return nil }
 

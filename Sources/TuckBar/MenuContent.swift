@@ -1,7 +1,9 @@
+import StoreKit
 import SwiftUI
 
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.requestReview) private var requestReview
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -15,7 +17,18 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 340)
-        .onAppear { model.refreshAll(); model.recheckPermission() }
+        .onAppear {
+            model.refreshAll(); model.recheckPermission()
+            // Opening the menu is the one moment the user is looking at TuckBar, so that is
+            // when to ask. A beat later, so the prompt doesn't land on the menu's open.
+            if model.reviewDue {
+                model.markReviewAsked()
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(600))
+                    requestReview()
+                }
+            }
+        }
     }
 
     // MARK: - Header
@@ -181,6 +194,12 @@ struct MenuContent: View {
                     Text("Grant Screen Recording for seamless wallpaper")
                         .font(.caption2.weight(.semibold)).foregroundStyle(.orange)
                     Text("TuckBar reads the wallpaper pixels (the screen isn't recorded). Enable it, then reopen this menu. Until then the cover shows black.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    // A grant belongs to one code signature. After moving between builds
+                    // (another copy, a reinstall) the switch can read on while macOS still
+                    // refuses this copy, and it does so without asking again.
+                    Text("Already on? Remove TuckBar from the list with the minus button, then add it back.")
                         .font(.caption2).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Open Screen Recording settings…") { model.openScreenRecordingSettings() }
