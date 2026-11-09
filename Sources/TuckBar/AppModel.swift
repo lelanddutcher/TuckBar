@@ -84,6 +84,7 @@ final class AppModel: ObservableObject {
     private var revealTimer: Timer?        // lets a lingering reveal expire while the pointer is still
     private var mouseMonitors: [Any] = []  // drive the hover-reveal from mouse moves
     private var requestedScreenRecording = false
+    private var usageTimer: Timer?         // counts tucked time for the rating prompt
 
     /// Serial queue for the blocking System Events / `defaults` calls, so they never
     /// stall the main thread — especially the first Automation consent prompt, which
@@ -102,6 +103,9 @@ final class AppModel: ObservableObject {
         static let useFullScreen = "useFullScreenWhenTucked"
         static let snoozeDuration = "snoozeDurationMinutes"
         static let displayNames = "displayNames"
+        static let firstUse = "firstUseDate"
+        static let protectedSeconds = "protectedSeconds"
+        static let reviewAskedVersion = "reviewAskedVersion"
         /// Marks that *we* enabled the global auto-hide, so a crash/force-quit that skips
         /// `restoreForQuit` can be reconciled (and the bar restored) at next launch.
         static let setAutohide = "tuckbarSetGlobalAutohide"
@@ -121,6 +125,7 @@ final class AppModel: ObservableObject {
         launchAtLogin = LoginItemManager.isEnabled
 
         refreshDisplays()
+        startUsageClock()
 
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -406,6 +411,42 @@ final class AppModel: ObservableObject {
         mouseMonitors.forEach(NSEvent.removeMonitor)
         mouseMonitors.removeAll()
     }
+
+    // MARK: - Rating prompt
+
+    /// Counts the time TuckBar spends actually tucking, in one-minute steps. Persisted so it
+    /// survives relaunches; a quit loses at most the minute in progress.
+    private func startUsageClock() {
+        if defaults.object(forKey: Keys.firstUse) == nil { defaults.set(Date(), forKey: Keys.firstUse) }
+        let timer = Timer(timeInterval: 60, repeats: true) { _ in
+            Task { @MainActor in
+                let model = AppModel.shared
+                guard model.isProtecting else { return }
+                model.defaults.set(model.defaults.double(forKey: Keys.protectedSeconds) + 60,
+                                   forKey: Keys.protectedSeconds)
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        usageTimer = timer
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    }
+
+    /// True once TuckBar has earned a rating ask for this version (see `ReviewPolicy`).
+    var reviewDue: Bool {
+        ReviewPolicy.shouldAsk(
+            protectedSeconds: defaults.double(forKey: Keys.protectedSeconds),
+            firstUse: defaults.object(forKey: Keys.firstUse) as? Date ?? Date(),
+            now: Date(),
+            lastAskedVersion: defaults.string(forKey: Keys.reviewAskedVersion),
+            currentVersion: appVersion)
+    }
+
+    /// Record the ask before making it, so a prompt StoreKit chooses not to show still
+    /// counts and we never nag twice in one version.
+    func markReviewAsked() { defaults.set(appVersion, forKey: Keys.reviewAskedVersion) }
 
     // MARK: - Snooze ("Untuck")
 

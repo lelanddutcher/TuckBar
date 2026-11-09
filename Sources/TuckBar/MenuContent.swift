@@ -1,7 +1,9 @@
+import StoreKit
 import SwiftUI
 
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.requestReview) private var requestReview
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -15,7 +17,18 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 340)
-        .onAppear { model.refreshAll(); model.recheckPermission() }
+        .onAppear {
+            model.refreshAll(); model.recheckPermission()
+            // Opening the menu is the one moment the user is looking at TuckBar, so that is
+            // when to ask. A beat later, so the prompt doesn't land on the menu's open.
+            if model.reviewDue {
+                model.markReviewAsked()
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(600))
+                    requestReview()
+                }
+            }
+        }
     }
 
     // MARK: - Header
