@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TuckBar App Store set v2</title>
+<!--
+  TuckBar App Store screenshots, v2 ("glass").
+  Each shot is a 2560x1600 frame. Pick one with the URL hash (#1 ... #5);
+  with no hash every frame is stacked for review.
+  Render: bash scripts/render-store-screens.sh
+-->
+<style>
+  :root {
+    --ink: #1d1d1f;
+    --ink-2: #6e6e73;
+    --accent: #ff9f0a;
+    --glass: rgba(255, 255, 255, 0.42);
+    --glass-strong: rgba(255, 255, 255, 0.62);
+    --glass-edge: rgba(255, 255, 255, 0.85);
+    --font: -apple-system, "SF Pro Display", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #e9eef6; }
+  body { font-family: var(--font); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+  .shot {
+    position: relative; width: 2560px; height: 1600px; overflow: hidden;
+    background:
+      radial-gradient(1200px 900px at 8% 0%, #ffffff 0%, rgba(255,255,255,0) 70%),
+      radial-gradient(1100px 800px at 100% 10%, #dfe8ff 0%, rgba(223,232,255,0) 70%),
+      radial-gradient(1300px 900px at 85% 110%, #ffe6d3 0%, rgba(255,230,211,0) 70%),
+      radial-gradient(1000px 800px at 0% 100%, #ece3ff 0%, rgba(236,227,255,0) 70%),
+      #f4f6fb;
+  }
+  body.single .shot { display: none; }
+  body.single .shot.on { display: block; }
+  body:not(.single) .shot { margin-bottom: 40px; }
+
+  /* ---------- type ---------- */
+  .brand { position: absolute; left: 140px; top: 120px; display: flex; align-items: center; gap: 22px; }
+  .brand img { width: 84px; height: 84px; filter: drop-shadow(0 10px 24px rgba(20,30,60,.18)); }
+  .brand span { font-size: 46px; font-weight: 600; letter-spacing: -0.01em; }
+  h1 {
+    position: absolute; left: 140px; top: 270px; width: 1500px;
+    font-size: 132px; line-height: 1.02; font-weight: 700; letter-spacing: -0.035em;
+  }
+  h1 em { font-style: normal; color: var(--ink-2); }
+  .sub {
+    position: absolute; left: 144px; width: 1300px;
+    font-size: 46px; line-height: 1.3; color: var(--ink-2); font-weight: 400; letter-spacing: -0.01em;
+  }
+
+  /* ---------- liquid glass ---------- */
+  .glass {
+    background: linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.30));
+    -webkit-backdrop-filter: blur(36px) saturate(190%);
+    backdrop-filter: blur(36px) saturate(190%);
+    border: 1.5px solid var(--glass-edge);
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,.9),
+      inset 0 -1px 0 rgba(255,255,255,.35),
+      0 30px 80px rgba(30, 40, 80, .18),
+      0 6px 18px rgba(30, 40, 80, .08);
+  }
+  .pill {
+    position: absolute; display: inline-flex; align-items: center; gap: 16px;
+    padding: 20px 34px; border-radius: 999px;
+    font-size: 36px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap;
+  }
+  .dot { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(255,159,10,.18); }
+  .dot.grey { background: #8e8e93; box-shadow: 0 0 0 6px rgba(142,142,147,.18); }
+
+  /* ---------- the wallpaper (our own, not Apple's) ---------- */
+  .wall {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 40% at 72% 78%, rgba(255,196,140,.95) 0%, rgba(255,196,140,0) 70%),
+      radial-gradient(50% 35% at 22% 70%, rgba(255,140,170,.55) 0%, rgba(255,140,170,0) 70%),
+      radial-gradient(70% 50% at 50% 0%, rgba(40,60,140,.9) 0%, rgba(40,60,140,0) 70%),
+      linear-gradient(180deg, #0b1232 0%, #1d2b66 30%, #5a4c9c 55%, #c9809c 75%, #ffc79a 92%, #ffe2c2 100%);
+  }
+  .wall::after {   /* a horizon, so the picture reads as a place */
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 26%;
+    background:
+      radial-gradient(120% 100% at 30% 100%, #2a2350 0%, #2a2350 45%, rgba(42,35,80,0) 46%),
+      radial-gradient(120% 90% at 85% 100%, #3a2d62 0%, #3a2d62 40%, rgba(58,45,98,0) 41%);
+    opacity: .85;
+  }
+
+  /* ---------- displays ---------- */
+  .display { position: absolute; }
+  .bezel {
+    position: absolute; inset: 0; border-radius: 26px; background: #0a0a0c;
+    box-shadow: 0 50px 120px rgba(20, 30, 70, .28), 0 10px 30px rgba(20,30,70,.14), inset 0 0 0 2px #26262b;
+  }
+  .screen { position: absolute; inset: 14px; border-radius: 14px; overflow: hidden; }
+  .stand {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(180deg, #d9dce3, #b9bdc7);
+    border-radius: 0 0 10px 10px;
+  }
+  .foot {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    height: 18px; border-radius: 10px; background: linear-gradient(180deg, #cfd3db, #aeb3bd);
+    box-shadow: 0 16px 30px rgba(20,30,70,.18);
+  }
+
+  /* ---------- macOS menu bar ---------- */
+  .menubar {
+    position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center;
+    color: #fff; font-weight: 500; white-space: nowrap;
+    background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.06));
+    -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+    text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+  .menubar .l, .menubar .r { display: flex; align-items: center; }
+  .menubar .r { margin-left: auto; }
+  .menubar b { font-weight: 700; }
+  .sicon { display: inline-block; border-radius: 3px; background: rgba(255,255,255,.92); }
+
+  /* ---------- TuckBar popover ---------- */
+  .pop {
+    position: absolute; width: 340px; padding: 16px; border-radius: 22px;
+    transform-origin: top left; font-size: 13px; color: var(--ink);
+  }
+  .pop .row { display: flex; align-items: center; gap: 10px; }
+  .pop .tile { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(160deg, #ffb340, #ff8a00); }
+  .pop .card { border-radius: 12px; padding: 12px; margin-top: 14px;
+    background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.9); }
+  .pop .cap { font-size: 11px; font-weight: 600; color: var(--ink-2); margin: 14px 2px 6px; letter-spacing: .02em; }
+  .pop .muted { color: var(--ink-2); font-size: 11px; }
+  .pop .btn { margin-left: auto; padding: 5px 12px; border-radius: 999px; font-weight: 600; font-size: 12px;
+    background: rgba(0,0,0,.06); border: 1px solid rgba(0,0,0,.06); }
+  .pop .btn.on { background: var(--accent); color: #fff; border-color: transparent; }
+  .switch { margin-left: auto; width: 32px; height: 19px; border-radius: 999px; background: #34c759; position: relative; }
+  .switch::after { content: ""; position: absolute; top: 2px; right: 2px; width: 15px; height: 15px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .switch.off { background: rgba(0,0,0,.12); }
+  .switch.off::after { right: auto; left: 2px; }
+  .slider { height: 4px; border-radius: 4px; background: rgba(0,0,0,.1); position: relative; margin: 12px 0 4px; }
+  .slider i { position: absolute; inset: 0; border-radius: 4px; background: var(--accent); }
+  .slider s { position: absolute; right: -8px; top: -7px; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .disp { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; }
+  .disp.tagged { background: rgba(255,159,10,.12); }
+  .disp .scr { width: 26px; height: 17px; border-radius: 3px; border: 1.5px solid currentColor; opacity: .7; }
+  .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--accent); color: #fff; }
+  .badge.grey { background: rgba(0,0,0,.08); color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<!-- The dashed-T glyph, as on the app icon and in the real menu bar. -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="tglyph" viewBox="0 0 22 16">
+      <rect x="1" y="1" width="20" height="3.4" rx="1.7" fill="currentColor"/>
+      <rect x="8.4" y="1" width="5.2" height="2.2" rx="0.8" fill="#000" opacity=".0"/>
+      <path d="M8.6 6.2v6.6a1.6 1.6 0 0 0 1.6 1.6h1.6a1.6 1.6 0 0 0 1.6-1.6V6.2" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="0.6 2.4"/>
+    </symbol>
+    <symbol id="cursor" viewBox="0 0 24 34">
+      <path d="M2 2v26l7-6.5 4.6 10.5 4.4-2-4.6-10.3H23z" fill="#111" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- =========================================================== 1: hero -->
+<section class="shot" id="s1">
+  <div class="brand"><img src="../../store/AppIcon-1024.png" alt=""><span>TuckBar</span></div>
+  <h1>your oled,<br><em>minus the menu bar.</em></h1>
+  <p class="sub" style="top:580px">tag the displays you want clean. tuckbar tucks their menu bar away and every other screen keeps its own.</p>
+
+  <!-- main OLED, tagged: no bar, wallpaper to the top edge -->
+  <div class="display" style="left:1080px; top:770px; width:1240px; height:720px;">
+    <div class="stand" style="top:720px; width:150px; height:70px;"></div>
+    <div class="foot" style="top:782px; width:360px;"></div>
+    <div class="bezel"></div>
+    <div class="screen"><div class="wall"></div></div>
+  </div>
+  <!-- second display, untagged: bar stays -->
+  <div class="display" style="left:200px; top:930px; width:820px; height:480px;">
+    <div class="stand" style="top:480px; width:110px; height:66px;"></div>
+    <div class="foot" style="top:538px; width:270px;"></div>
+    <div class="bezel"></div>
+    <div class="screen">
+      <div class="wall"></div>
+      <div class="menubar" style="height:30px; padding:0 16px; font-size:15px; gap:0;">
+        <div class="l" style="gap:20px"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span></div>
+        <div class="r" style="gap:16px">
+          <svg width="22" height="16" style="color:#fff"><use href="#tglyph"/></svg>
+          <span class="sicon" style="width:18px;height:11px"></span>
+          <span>Mon 9 Nov  4:41 PM</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pill glass" style="left:1470px; top:690px;"><span class="dot"></span>AW3225QF · oled · tucked</div>
+  <div class="pill glass" style="left:330px; top:850px;"><span class="dot grey"></span>second display · bar stays</div>
+</section>
+
+<!-- =========================================================== 2: burn-in -->
+<section class="shot" id="s2">
+  <div class="brand"><img src="../../store/AppIcon-1024.png" alt=""><span>TuckBar</span></div>
+  <h1>the menu bar never moves.<br><em>your oled remembers.</em></h1>
+  <p class="sub" style="top:580px">the same bright pixels sit in the same strip all day, every day. that's exactly what burns in. tuck it and those pixels rest.</p>
+
+  <!-- a grey test field with the bar's ghost burned in -->
+  <div class="display" style="left:140px; top:830px; width:1500px; height:680px;">
+    <div class="bezel"></div>
+    <div class="screen" style="background:#7b7c80;">
+      <div style="position:absolute; left:0; right:0; top:0; height:40px; display:flex; align-items:center; padding:0 22px; gap:28px;
+                  font-size:20px; font-weight:600; color:rgba(255,255,255,.16); white-space:nowrap;">
+        <span>Finder</span><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span>
+        <span style="margin-left:auto">Mon 9 Nov  4:41 PM</span>
+      </div>
+      <div style="position:absolute; left:0; right:0; top:0; height:40px; background:rgba(255,255,255,.05)"></div>
+      <div style="position:absolute; left:50%; bottom:40px; transform:translateX(-50%); font-size:22px; color:rgba(255,255,255,.55); letter-spacing:.08em;">GREY 18% TEST FIELD</div>
+    </div>
+  </div>
+
+  <!-- loupe -->
+  <div class="glass" style="position:absolute; left:1500px; top:660px; width:760px; height:760px; border-radius:50%; overflow:hidden; padding:0; border-width:3px;">
+    <div style="position:absolute; inset:0; background:#7b7c80;"></div>
+    <div style="position:absolute; left:40px; top:250px; display:flex; gap:56px; font-size:64px; font-weight:600;
+                color:rgba(255,255,255,.22); white-space:nowrap;">
+      <span>Finder</span><span>File</span><span>Edit</span>
+    </div>
+    <div style="position:absolute; left:0; right:0; top:226px; height:120px; background:rgba(255,255,255,.06)"></div>
+    <div style="position:absolute; inset:0; border-radius:50%; box-shadow: inset 0 0 0 3px rgba(255,255,255,.9), inset 0 30px 60px rgba(255,255,255,.35), inset 0 -40px 80px rgba(0,0,0,.18);"></div>
+  </div>
+
+  <div class="pill glass" style="left:1700px; top:1450px;"><span class="dot"></span>a ghost of the menu bar</div>
+</section>
+
+<!-- =========================================================== 3: seamless -->
+<section class="shot" id="s3">
+  <div class="brand"><img src="../../store/AppIcon-1024.png" alt=""><span>TuckBar</span></div>
+  <h1>it doesn't go black.<br><em>it just disappears.</em></h1>
+  <p class="sub" style="top:580px">the cover is your real wallpaper, captured live and matched to the gradient macos draws over it. the picture runs clean to the top edge.</p>
+
+  <div class="display" style="left:140px; top:800px; width:2280px; height:700px;">
+    <div class="bezel" style="border-radius:28px 28px 0 0;"></div>
+    <div class="screen" style="border-radius:16px 16px 0 0; bottom:0;">
+      <div class="wall"></div>
+      <!-- before: the bar is there on the left half only -->
+      <div style="position:absolute; left:0; top:0; width:50%; height:100%; overflow:hidden;">
+        <div class="menubar" style="width:2252px; height:52px; padding:0 30px; font-size:26px;">
+          <div class="l" style="gap:38px"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span></div>
+          <div class="r" style="gap:26px">
+            <svg width="34" height="25" style="color:#fff"><use href="#tglyph"/></svg>
+            <span class="sicon" style="width:30px;height:18px"></span>
+            <span>Mon 9 Nov  4:41 PM</span>
+          </div>
+        </div>
+      </div>
+      <!-- the divider -->
+      <div style="position:absolute; left:calc(50% - 2px); top:0; bottom:0; width:4px; background:rgba(255,255,255,.85); box-shadow:0 0 30px rgba(255,255,255,.6);"></div>
+      <div class="glass" style="position:absolute; left:calc(50% - 46px); top:300px; width:92px; height:92px; border-radius:50%; display:grid; place-items:center;">
+        <svg width="44" height="24" viewBox="0 0 44 24"><path d="M14 4 6 12l8 8M30 4l8 8-8 8" fill="none" stroke="#1d1d1f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="pill glass" style="left:260px; top:1380px;"><span class="dot grey"></span>before</div>
+  <div class="pill glass" style="left:1400px; top:1380px;"><span class="dot"></span>after · same wallpaper, no bar</div>
+</section>
+
+<!-- =========================================================== 4: reveal -->
+<section class="shot" id="s4">
+  <div class="brand"><img src="../../store/AppIcon-1024.png" alt=""><span>TuckBar</span></div>
+  <h1>reach the top.<br><em>it's already there.</em></h1>
+  <p class="sub" style="top:580px">the bar fades in the moment your pointer touches the top edge, and eases away once you move on. no click, no shortcut.</p>
+
+  <div class="display" style="left:140px; top:800px; width:2280px; height:700px;">
+    <div class="bezel" style="border-radius:28px 28px 0 0;"></div>
+    <div class="screen" style="border-radius:16px 16px 0 0; bottom:0;">
+      <div class="wall"></div>
+      <div class="menubar" style="height:52px; padding:0 30px; font-size:26px; opacity:.72;
+                                  -webkit-mask-image:linear-gradient(90deg, #000 0%, #000 55%, rgba(0,0,0,.35) 100%);
+                                  mask-image:linear-gradient(90deg, #000 0%, #000 55%, rgba(0,0,0,.35) 100%);">
+        <div class="l" style="gap:38px"><b>Safari</b><span>File</span><span>Edit</span><span>View</span><span>History</span><span>Bookmarks</span><span>Window</span><span>Help</span></div>
+        <div class="r" style="gap:26px">
+          <svg width="34" height="25" style="color:#fff"><use href="#tglyph"/></svg>
+          <span class="sicon" style="width:30px;height:18px"></span>
+          <span>Mon 9 Nov  4:41 PM</span>
+        </div>
+      </div>
+      <svg width="40" height="56" style="position:absolute; left:1120px; top:8px; filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))"><use href="#cursor"/></svg>
+      <!-- a ripple where the pointer meets the edge -->
+      <div style="position:absolute; left:1040px; top:-90px; width:200px; height:200px; border-radius:50%;
+                  background:radial-gradient(circle, rgba(255,255,255,.45) 0%, rgba(255,255,255,0) 65%);"></div>
+    </div>
+  </div>
+  <div class="pill glass" style="left:900px; top:1000px;"><span class="dot"></span>back the instant you reach for it</div>
+  <div class="pill glass" style="left:1500px; top:1260px;"><span class="dot grey"></span>tucks away softly when you leave</div>
+</section>
+
+<!-- =========================================================== 5: one menu -->
+<section class="shot" id="s5">
+  <div class="brand"><img src="../../store/AppIcon-1024.png" alt=""><span>TuckBar</span></div>
+  <h1>one small menu.<br><em>every display.</em></h1>
+  <p class="sub" style="top:580px; width:1000px">tag a display and it tucks whenever it's plugged in. pick seamless, dimmed or black. untuck for a few minutes when you need the bar.</p>
+
+  <!-- a desktop behind the popover so the glass has something to refract -->
+  <div style="position:absolute; left:1240px; top:120px; width:1220px; height:1380px; border-radius:40px; overflow:hidden;
+              box-shadow:0 50px 120px rgba(20,30,70,.25);">
+    <div class="wall"></div>
+    <div class="menubar" style="height:44px; padding:0 26px; font-size:21px;">
+      <div class="l" style="gap:30px"><b>Finder</b><span>File</span><span>Edit</span></div>
+      <div class="r" style="gap:22px">
+        <span style="display:grid; place-items:center; width:40px; height:30px; border-radius:8px; background:rgba(255,255,255,.28)">
+          <svg width="28" height="20" style="color:#fff"><use href="#tglyph"/></svg></span>
+        <span class="sicon" style="width:26px;height:15px"></span>
+        <span>4:41 PM</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pop glass" style="left:1480px; top:190px; transform:scale(2.6);">
+    <div class="row">
+      <div class="tile"><svg width="22" height="16" style="color:#fff"><use href="#tglyph"/></svg></div>
+      <div>
+        <div style="font-weight:600; font-size:15px;">TuckBar</div>
+        <div class="muted" style="display:flex; align-items:center; gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#34c759;display:inline-block"></span>Tucked · AW3225QF</div>
+      </div>
+    </div>
+    <div class="card row">
+      <div><div style="font-weight:600">Need the menu bar?</div><div class="muted">Untuck it for a bit, it re-tucks itself.</div></div>
+      <div class="btn on">Untuck</div>
+    </div>
+    <div class="cap">MENU BAR ON TUCKED DISPLAYS</div>
+    <div class="card" style="margin-top:0">
+      <div class="row"><span style="font-weight:600">Hidden</span><span class="muted" style="margin-left:auto">100%</span></div>
+      <div class="slider"><i></i><s></s></div>
+      <div class="row" style="margin-top:12px"><div><div>Match desktop wallpaper</div><div class="muted">The bar just disappears</div></div><span class="switch"></span></div>
+      <div class="row" style="margin-top:10px"><div><div>Use the full screen</div><div class="muted">Windows grow into the strip</div></div><span class="switch off"></span></div>
+    </div>
+    <div class="cap">DISPLAYS</div>
+    <div class="card" style="margin-top:0; padding:4px;">
+      <div class="disp tagged"><span class="scr"></span><div><div style="font-weight:600">AW3225QF</div><div class="muted">3840 × 2160 · main</div></div><span class="badge" style="margin-left:auto">TUCKED</span></div>
+      <div class="disp"><span class="scr"></span><div><div style="font-weight:600">PA248QV</div><div class="muted">1200 × 1920</div></div><span class="badge grey" style="margin-left:auto">TAG</span></div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // #n renders one frame alone at 2560x1600; no hash shows the whole set.
+  const n = location.hash.slice(1);
+  if (n) {
+    document.body.classList.add('single');
+    document.getElementById('s' + n)?.classList.add('on');
+  }
+</script>
+</body>
+</html>

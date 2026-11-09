@@ -27,6 +27,13 @@ Requires macOS 14 or later.
 ## Keywords (≤ 100 chars, comma-separated)
 `OLED,burn-in,menubar,hide menu bar,dock,multi-monitor,display,dim,auto-hide,wallpaper,clean,screen`
 
+## What's new in 0.2
+
+- fixed on macOS 27: the wallpaper cover could show solid black. it now matches your desktop again, including the soft gradient macos draws at the top.
+- the bar fades back the moment your pointer reaches the top edge, and tucks away softly when you leave.
+- new "use the full screen" option lets windows grow into the menu-bar space (macos hides the bar on every display to allow it).
+- steps aside properly under full-screen apps, and leaves the notch alone.
+
 ## What's new in v0.1
 First public release. Per-display menu-bar tucking with a seamless wallpaper cover (or solid black / dim), hover-to-reveal, Untuck timer, optional Dock hiding, and tuck-on-connect.
 
