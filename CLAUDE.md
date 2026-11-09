@@ -102,9 +102,9 @@ find-and-replace:
 
 ## The marketing site is a different repo
 
-`lelanddutcher/tuckbar-site` (private, Vite + Three.js, Netlify auto-deploys `main`). It is
+`lelanddutcher/tuckbar-site` (private, Vite + Three.js, hosted on Cloudflare). It is
 the one case that legitimately spans two repos — confirm before starting, keep the commits
-separate, and do not touch its name or `netlify.toml`.
+separate, and do not touch its name or its redirects (`public/_redirects`).
 
 ## Voice
 
