@@ -59,6 +59,7 @@ final class MenuBarCover {
             let isNew = windows[id] == nil
             let win = windows[id] ?? Self.makeWindow()
             win.setFrame(Self.menuBarFrame(for: screen), display: true)
+            Self.applyHousingMask(win, for: screen)
             if !isNew, covered[id] == true { win.alphaValue = self.opacity }
             windows[id] = win
 
@@ -358,6 +359,39 @@ final class MenuBarCover {
                 base.contentsGravity = .resize    // captured image IS the strip → fill 1:1
             }
         }
+    }
+
+    /// Leave the camera housing uncovered: the notch, or the Dynamic Island on the 2026
+    /// OLED MacBook Pro. The island lives in the menu-bar strip and shows Live Activities;
+    /// if macOS draws it below the cover's level, a full-width cover would hide it. On a
+    /// notch the gap is black hardware either way, so this costs nothing there.
+    private static func applyHousingMask(_ win: NSWindow, for screen: NSScreen) {
+        guard let layer = win.contentView?.layer else { return }
+        let size = win.frame.size
+        guard let gap = housingGap(screenFrame: screen.frame,
+                                   left: screen.auxiliaryTopLeftArea,
+                                   right: screen.auxiliaryTopRightArea) else {
+            layer.mask = nil
+            return
+        }
+        let mask = CAShapeLayer()
+        mask.actions = ["path": NSNull(), "bounds": NSNull(), "position": NSNull()]
+        mask.frame = CGRect(origin: .zero, size: size)
+        let path = CGMutablePath()
+        path.addRect(CGRect(x: 0, y: 0, width: gap.lowerBound, height: size.height))
+        path.addRect(CGRect(x: gap.upperBound, y: 0, width: size.width - gap.upperBound, height: size.height))
+        mask.path = path
+        layer.mask = mask
+    }
+
+    /// The horizontal span of the camera housing in window-local x, from the areas macOS
+    /// reports as usable on either side of it. `nil` on a display without one.
+    nonisolated static func housingGap(screenFrame: NSRect, left: NSRect?, right: NSRect?) -> ClosedRange<CGFloat>? {
+        guard let left, let right else { return nil }
+        let start = left.maxX - screenFrame.minX
+        let end = right.minX - screenFrame.minX
+        guard end > start, start > 0, end < screenFrame.width else { return nil }
+        return start...end
     }
 
     private static func displayID(for screen: NSScreen) -> CGDirectDisplayID? {
