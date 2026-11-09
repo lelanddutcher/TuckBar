@@ -59,9 +59,9 @@ a seamless second-monitor setup needs screen recording and nothing else.
 
 ## how it works
 
-- two or more displays: a borderless window covers the tagged display's menu-bar strip, above the menu-bar level, on every space, filled with the live wallpaper slice or black. a cheap poll reveals it on hover and gets it out of the way under full-screen apps.
+- two or more displays: a borderless window covers the tagged display's menu-bar strip, above the menu-bar level, on every space, filled with the live wallpaper slice or black. it fades out the moment the pointer reaches the top edge, eases back in once you leave, and steps aside under full-screen apps. the notch or dynamic island is left uncovered.
 - one display: native menu-bar auto-hide, so you always have a way to reach the bar.
-- capture: screencapturekit grabs the dock's per-display wallpaper window, clipped to the strip, and re-grabs when the wallpaper or space changes.
+- capture: screencapturekit grabs the desktop as macos draws it, minus every window, clipped to the strip. that includes the soft gradient macos lays over the top of the wallpaper, so the cover matches what's below it. it re-grabs when the wallpaper or space changes and dissolves to the new one.
 - if it ever gets force-quit mid-tuck, it reconciles on the next launch and restores the bar. you don't get stranded.
 
 ## known limits
