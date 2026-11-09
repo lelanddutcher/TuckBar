@@ -21,15 +21,25 @@ enum SystemSettings {
         return MenuBarVisibility(hideMenuBar: hide, visibleInFullscreen: visFS)
     }
 
+    /// Applies `v` using the step order for the running OS (see `MenuBarApplyPlan`:
+    /// macOS 27 needs System Events to run last, with no SystemUIServer restart).
     @discardableResult
     static func setMenuBarVisibility(_ v: MenuBarVisibility) -> Bool {
-        let ok = systemEvents("set autohide menu bar of dock preferences to \(v.hideMenuBar ? "true" : "false")")
-        // Persist (incl. the full-screen nuance, applied on the next FS transition).
-        writeBool("NSGlobalDomain", "_HIHideMenuBar", v.hideMenuBar)
-        writeBool("NSGlobalDomain", "AppleMenuBarVisibleInFullscreen", v.visibleInFullscreen)
-        // Redraw the menu-bar agents in place (no flash; needed so the change shows at once).
-        killall("ControlCenter")
-        killall("SystemUIServer")
+        var ok = true
+        for step in MenuBarApplyPlan.steps(for: v, osMajorVersion: OSVersion.major) {
+            switch step {
+            case .systemEvents(let hide):
+                ok = systemEvents("set autohide menu bar of dock preferences to \(hide ? "true" : "false")")
+            case .writeDefaults(let hide, let visibleInFullscreen):
+                // Persist (incl. the full-screen nuance, applied on the next FS transition).
+                writeBool("NSGlobalDomain", "_HIHideMenuBar", hide)
+                writeBool("NSGlobalDomain", "AppleMenuBarVisibleInFullscreen", visibleInFullscreen)
+            case .restartMenuBarAgents:
+                // Redraw the menu-bar agents in place (no flash; needed so the change shows at once).
+                killall("ControlCenter")
+                killall("SystemUIServer")
+            }
+        }
         return ok
     }
 

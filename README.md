@@ -31,6 +31,7 @@ want max protection instead of seamless? flip the cover to solid black, pixels o
 - tag the displays you want tucked. the rest keep their bar.
 - seamless wallpaper cover, solid black, or anywhere between on the dim slider.
 - hover the top edge to get the real bar back, then it re-tucks.
+- want the space back too? flip on "use the full screen" and windows can grow up into the strip. macos only allows that by auto-hiding the bar on every display, so your other monitor's bar auto-hides too.
 - untuck for 5 to 60 minutes when you need the bar for a recording or a finicky app. it re-tucks itself.
 - hide the dock too, optionally, while a tagged display is connected.
 - tucks on connect, restores on unplug.
@@ -66,6 +67,7 @@ a seamless second-monitor setup needs screen recording and nothing else.
 ## known limits
 
 - hiding the bar on a single display uses the system auto-hide, which is global on that mac. no per-display api exists for it.
+- the cover is visual. the real bar is still there underneath, so windows stop below it. to let windows use the strip, turn on "use the full screen", which switches to the system auto-hide (global). the lab measurements behind this are in [docs/lab-findings.md](docs/lab-findings.md).
 - the seamless cover needs screen recording. without it you get the black cover.
 - dynamic time-of-day wallpapers are best-effort. it re-captures on change, but a slow same-image shift can lag a beat.
 
