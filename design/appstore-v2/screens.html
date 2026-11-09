@@ -147,6 +147,47 @@
   .disp .scr { width: 26px; height: 17px; border-radius: 3px; border: 1.5px solid currentColor; opacity: .7; }
   .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--accent); color: #fff; }
   .badge.grey { background: rgba(0,0,0,.08); color: var(--ink-2); }
+
+  /* ---------- themes: #<shot>/<theme> ---------- */
+
+  /* daylight: a pale morning sky. macOS draws dark menu text over a light wallpaper. */
+  body.t-daylight .wall {
+    background:
+      radial-gradient(55% 40% at 75% 80%, rgba(255,214,170,.9) 0%, rgba(255,214,170,0) 70%),
+      radial-gradient(45% 35% at 20% 75%, rgba(255,190,210,.6) 0%, rgba(255,190,210,0) 70%),
+      radial-gradient(70% 55% at 50% 0%, rgba(150,190,255,.85) 0%, rgba(150,190,255,0) 70%),
+      linear-gradient(180deg, #7fa8f5 0%, #a9c6fb 30%, #d9e4fb 55%, #fbe3e3 78%, #ffe9d2 100%);
+  }
+  body.t-daylight .wall::after {
+    background:
+      radial-gradient(120% 100% at 30% 100%, #c7b8e6 0%, #c7b8e6 45%, rgba(199,184,230,0) 46%),
+      radial-gradient(120% 90% at 85% 100%, #b6a6dc 0%, #b6a6dc 40%, rgba(182,166,220,0) 41%);
+    opacity: .9;
+  }
+  body.t-daylight .menubar { color: #1d1d1f; text-shadow: none; background: rgba(255,255,255,.28); }
+  body.t-daylight .menubar svg { color: #1d1d1f !important; }
+  body.t-daylight .menubar .sicon { background: rgba(29,29,31,.85); }
+
+  /* oled: a light frame around a true-black screen with one luminous ribbon, which is
+     the picture OLED owners actually run. */
+  body.t-oled .wall {
+    background:
+      radial-gradient(42% 30% at 64% 62%, rgba(255,150,60,.55) 0%, rgba(255,150,60,0) 70%),
+      radial-gradient(60% 22% at 40% 55%, rgba(120,90,255,.55) 0%, rgba(120,90,255,0) 70%),
+      radial-gradient(80% 14% at 55% 58%, rgba(80,200,255,.35) 0%, rgba(80,200,255,0) 70%),
+      #000;
+  }
+  body.t-oled .wall::after { display: none; }
+  /* glass over a black screen has nothing bright to pick up, so it needs its own white */
+  body.t-oled .glass { background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.74)); }
+  body.t-oled .menubar { background: rgba(255,255,255,.10); }
+  body.t-oled .shot {
+    background:
+      radial-gradient(1200px 900px at 8% 0%, #ffffff 0%, rgba(255,255,255,0) 70%),
+      radial-gradient(1100px 800px at 100% 10%, #e3e9f7 0%, rgba(227,233,247,0) 70%),
+      radial-gradient(1300px 900px at 85% 110%, #f1e7ff 0%, rgba(241,231,255,0) 70%),
+      #f3f4f8;
+  }
 </style>
 </head>
 <body>
@@ -346,8 +387,10 @@
 </section>
 
 <script>
-  // #n renders one frame alone at 2560x1600; no hash shows the whole set.
-  const n = location.hash.slice(1);
+  // #n renders one frame alone at 2560x1600, #n/theme in a variant (daylight, oled);
+  // no hash shows the whole set.
+  const [n, theme] = location.hash.slice(1).split('/');
+  if (theme) document.body.classList.add('t-' + theme);
   if (n) {
     document.body.classList.add('single');
     document.getElementById('s' + n)?.classList.add('on');
