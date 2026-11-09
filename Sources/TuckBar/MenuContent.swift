@@ -183,6 +183,12 @@ struct MenuContent: View {
                     Text("TuckBar reads the wallpaper pixels (the screen isn't recorded). Enable it, then reopen this menu. Until then the cover shows black.")
                         .font(.caption2).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    // A grant belongs to one code signature. After moving between builds
+                    // (another copy, a reinstall) the switch can read on while macOS still
+                    // refuses this copy, and it does so without asking again.
+                    Text("Already on? Remove TuckBar from the list with the minus button, then add it back.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Button("Open Screen Recording settings…") { model.openScreenRecordingSettings() }
                         .controlSize(.small)
                 }
