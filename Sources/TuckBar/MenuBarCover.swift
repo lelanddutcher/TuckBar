@@ -22,7 +22,17 @@ final class MenuBarCover {
     private var wallpaperSig: [CGDirectDisplayID: [UInt8]] = [:]   // pixel fingerprint per display
     private var lastSignatureCheck = Date.distantPast
     private var signatureProbeInFlight = false
+    private var barShowing: [CGDirectDisplayID: Bool] = [:]   // real bar on screen (#3)
+    private var lastPresenceCheck = Date.distantPast
     private let lingerSeconds: TimeInterval = 0.7
+
+    // Motion. Revealing has to feel instant, so it is a short fade rather than a snap; the
+    // eye reads a 0.1 s fade as immediate but not as a jump cut. Tucking back is the moment
+    // the user is not looking at the bar any more, so it can take its time and settle.
+    private let revealFade: TimeInterval = 0.10
+    private let tuckFade: TimeInterval = 0.45
+    private let engageFade: TimeInterval = 0.6
+    private let wallpaperCrossfade: TimeInterval = 0.8
 
     var isActive: Bool { !windows.isEmpty }
 
@@ -37,6 +47,7 @@ final class MenuBarCover {
             windows.removeValue(forKey: id)
             revealedUntil.removeValue(forKey: id)
             covered.removeValue(forKey: id)
+            barShowing.removeValue(forKey: id)
             styleIsWallpaper.removeValue(forKey: id)
             wallpaperSig.removeValue(forKey: id)
         }
@@ -48,7 +59,7 @@ final class MenuBarCover {
             let isNew = windows[id] == nil
             let win = windows[id] ?? Self.makeWindow()
             win.setFrame(Self.menuBarFrame(for: screen), display: true)
-            win.alphaValue = self.opacity
+            if !isNew, covered[id] == true { win.alphaValue = self.opacity }
             windows[id] = win
 
             let needsConfigure = isNew
@@ -70,40 +81,84 @@ final class MenuBarCover {
     }
 
     func removeAll() {
-        for win in windows.values { win.orderOut(nil) }
+        for win in windows.values { fade(win, to: 0, duration: revealFade) }
         windows.removeAll(); revealedUntil.removeAll(); covered.removeAll(); styleIsWallpaper.removeAll()
-        renderedKey.removeAll(); wallpaperSig.removeAll()
+        renderedKey.removeAll(); wallpaperSig.removeAll(); barShowing.removeAll()
         wallpaperDirty = true
     }
 
     /// Reveal the cover on whichever display the pointer is at the top of; otherwise keep
     /// it covered. Steps aside entirely when the display's menu bar isn't occupying space
     /// (a full-screen Space owns it). Cheap; called ~16×/sec.
+    ///
+    /// Driven by mouse-move events for an instant reveal, plus a slow timer that lets a
+    /// lingering reveal expire when the pointer is still.
     func tick() {
         let mouse = NSEvent.mouseLocation
         let now = Date()
+        refreshBarPresence(now: now)
         for (id, win) in windows {
             guard let screen = Self.screen(for: id) else { continue }
             let f = screen.frame
             let inset = f.maxY - screen.visibleFrame.maxY
-            let menuBarVisible = inset > 1            // ~0 when a full-screen Space owns this display
+            // Prefer reading the bar itself; the inset stays non-zero in full screen on a
+            // notched / Dynamic Island display, which is #3.
+            let menuBarVisible = barShowing[id] ?? (inset > 1)
             let barHeight = max(inset, 24)
             let overTop = mouse.x >= f.minX && mouse.x < f.maxX && mouse.y >= f.maxY - barHeight
             if overTop { revealedUntil[id] = now.addingTimeInterval(lingerSeconds) }
             let lingering = revealedUntil[id].map { now < $0 } ?? false
             let shouldCover = menuBarVisible && !(overTop || lingering) && opacity > 0.001
             if covered[id] != shouldCover {
+                let firstShow = covered[id] == nil
                 if shouldCover {
-                    win.alphaValue = opacity
-                    win.orderFrontRegardless()
+                    fade(win, to: opacity, duration: firstShow ? engageFade : tuckFade)
                 } else {
-                    win.orderOut(nil)
+                    fade(win, to: 0, duration: firstShow ? 0 : revealFade)
                 }
                 covered[id] = shouldCover
             }
         }
         maybeRefreshWallpaper()
     }
+
+    /// Fade a cover in or out. Interrupting a fade is safe: the animator retargets from the
+    /// current alpha, and the order-out at the end only runs if the cover is still meant to
+    /// be hidden, so a quick hover-off-hover-on never leaves it ordered out.
+    private func fade(_ win: NSWindow, to alpha: CGFloat, duration: TimeInterval) {
+        if alpha > 0, !win.isVisible {
+            win.alphaValue = 0
+            win.orderFrontRegardless()
+        }
+        guard duration > 0 else {
+            win.alphaValue = alpha
+            if alpha == 0 { win.orderOut(nil) }
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: alpha > 0 ? .easeInEaseOut : .easeOut)
+            win.animator().alphaValue = alpha
+        }, completionHandler: {
+            Task { @MainActor in
+                if alpha == 0, win.alphaValue < 0.001 { win.orderOut(nil) }
+            }
+        })
+    }
+
+    /// Re-read which displays' real bars are on screen. Throttled to 4 Hz; the window list
+    /// is too heavy to walk on every mouse move.
+    private func refreshBarPresence(now: Date) {
+        guard now.timeIntervalSince(lastPresenceCheck) >= 0.25 else { return }
+        lastPresenceCheck = now
+        let bars = MenuBarPresence.currentBarWindows()
+        for id in windows.keys {
+            barShowing[id] = MenuBarPresence.isShowing(on: CGDisplayBounds(id), barWindows: bars)
+        }
+    }
+
+    /// Re-read bar presence on the next tick (Space change: a full-screen app came or went).
+    func invalidatePresence() { lastPresenceCheck = .distantPast }
 
     /// Detect a wallpaper change on a covered display and re-render that cover.
     /// Throttled; safe to call every tick.
@@ -285,6 +340,20 @@ final class MenuBarCover {
                 win.contentView?.addSubview(iv)
 
             default:
+                if keepExisting {
+                    // The wallpaper changed under a cover that is already showing (rotating
+                    // aerials, light/dark). Dissolve to the new strip instead of cutting.
+                    let t = CATransition()
+                    t.type = .fade
+                    t.duration = self.wallpaperCrossfade
+                    base.add(t, forKey: "wallpaperCrossfade")
+                } else if win.isVisible, win.alphaValue > 0 {
+                    // First strip over the black placeholder: a short dissolve, not a flash.
+                    let t = CATransition()
+                    t.type = .fade
+                    t.duration = 0.25
+                    base.add(t, forKey: "wallpaperCrossfade")
+                }
                 base.contents = image
                 base.contentsGravity = .resize    // captured image IS the strip → fill 1:1
             }
