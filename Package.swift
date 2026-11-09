@@ -10,6 +10,11 @@ let package = Package(
         .executableTarget(
             name: "TuckBar",
             path: "Sources/TuckBar"
+        ),
+        .testTarget(
+            name: "TuckBarTests",
+            dependencies: ["TuckBar"],
+            path: "Tests/TuckBarTests"
         )
     ]
 )

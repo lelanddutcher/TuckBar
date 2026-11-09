@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build + test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-15: Sequoia / Xcode 16. macos-26: Tahoe / Xcode 26.
+        # xcode-27: Golden Gate / Xcode 27 (GitHub labels this image by Xcode version).
+        runner: [macos-15, macos-26, xcode-27]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          sysctl kern.osproductversion
+          xcodebuild -version
+          swift --version
+
+      - name: Build (debug)
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+      - name: Build app bundle (release)
+        run: ./scripts/build-app.sh
+
+      - name: Bundle sanity
+        run: |
+          test -x build/TuckBar.app/Contents/MacOS/TuckBar
+          plutil -lint build/TuckBar.app/Contents/Info.plist
+          codesign --verify --verbose build/TuckBar.app

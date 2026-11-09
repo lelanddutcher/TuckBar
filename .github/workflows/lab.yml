@@ -1,0 +1,64 @@
+name: Lab
+
+# Experiments for issue #1 (windows in the tucked strip) on real macOS GUI sessions.
+# Free on public repos with standard runners. Never part of the release gate.
+on:
+  push:
+    branches: [claude/review-customer-feedback-issue-f8t61l]
+    paths: ['Lab/**', '.github/workflows/lab.yml']
+  workflow_dispatch:
+    inputs:
+      which:
+        description: Experiment (all, env, order, own, ax)
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lab:
+    name: lab (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-26, xcode-27]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Environment
+        run: |
+          sw_vers
+          system_profiler SPDisplaysDataType | sed -n '1,40p' || true
+          echo "--- TCC (system) ---"
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+            "select service, client, auth_value from access where service in ('kTCCServiceAccessibility','kTCCServiceAppleEvents','kTCCServiceScreenCapture','kTCCServicePostEvent')" 2>&1 | head -60 || true
+          echo "--- TCC (user) ---"
+          sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" \
+            "select service, client, indirect_object_identifier, auth_value from access where service in ('kTCCServiceAccessibility','kTCCServiceAppleEvents','kTCCServiceScreenCapture','kTCCServicePostEvent')" 2>&1 | head -60 || true
+
+      - name: Build lab
+        run: swift build -c release --package-path Lab
+
+      - name: Run lab
+        run: |
+          mkdir -p lab-out
+          screencapture -x lab-out/before.png || true
+          Lab/.build/release/Lab "${{ inputs.which || 'all' }}" 2>&1 | tee lab-out/lab.log
+          screencapture -x lab-out/after.png || true
+
+      - name: Summary
+        if: always()
+        run: grep '^LAB ' lab-out/lab.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab-${{ matrix.runner }}
+          path: lab-out
+          retention-days: 7
