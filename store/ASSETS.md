@@ -7,7 +7,7 @@ notarization) is kept as the fallback for direct distribution.
 
 ## Screenshots
 
-`screenshots/` holds the current set: five 2560 × 1600 PNGs (16:10), the "dawn" look of the
+`screenshots/` holds the current set: five 2880 × 1800 PNGs (16:10, no alpha, sRGB), the "dawn" look of the
 light liquid-glass design. The App Store accepts 1280 × 800, 1440 × 900, 2560 × 1600 or
 2880 × 1800, PNG or JPEG, 1 to 10 per localization.
 
@@ -15,7 +15,7 @@ The source is one HTML file, `design/appstore-v2/screens.html`, rendered with he
 so the glass can use a real backdrop blur:
 
 ```bash
-bash scripts/render-store-screens.sh store/screenshots dawn   # or: daylight | oled
+bash scripts/render-store-screens.sh store/screenshots dawn 1.125   # 2880x1800; theme: dawn | daylight | oled
 ```
 
 Open the HTML file in a browser with no hash to see all five frames; `#3` shows one frame,
