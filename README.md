@@ -90,3 +90,5 @@ swift scripts/make-screenshots.swift store/screenshots
 ## license
 
 mit. see [LICENSE](LICENSE).
+
+[![As seen on Open Source Alternatives](https://www.opensourcealternatives.to/badge-osa.svg)](https://www.opensourcealternatives.to)
